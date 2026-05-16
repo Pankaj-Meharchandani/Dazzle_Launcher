@@ -299,7 +299,7 @@ fun HomeScreen(
 
         // Page Indicator and Dock area
         Column(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (pages > 1) {
@@ -319,6 +319,7 @@ fun HomeScreen(
                         )
                     }
                 }
+                Spacer(modifier = Modifier.height(12.dp))
             }
             
             Dock(apps = dockApps, onAppClick = onAppClick, onLongClick = onToggleDock)
