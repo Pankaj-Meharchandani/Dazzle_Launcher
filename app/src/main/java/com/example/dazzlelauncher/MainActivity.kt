@@ -35,9 +35,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -45,7 +45,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.graphics.drawable.toBitmap
 import com.example.dazzlelauncher.ui.theme.DazzleLauncherTheme
 import kotlinx.coroutines.launch
 
@@ -294,11 +293,13 @@ fun AppDrawerContent(
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val gridState = rememberLazyGridState()
-    
-    LaunchedEffect(isExpanded) {
-        if (isExpanded) {
+
+    // Reset scroll when not expanded to ensure it starts from top next time
+    val shouldReset = remember(isExpanded) { !isExpanded }
+    LaunchedEffect(shouldReset) {
+        if (shouldReset) {
             gridState.scrollToItem(0)
-            searchQuery = "" // Also clear search when opening?
+            searchQuery = ""
         }
     }
 
@@ -422,7 +423,7 @@ fun AppItem(app: AppInfo, onClick: (String) -> Unit) {
         ) {
             app.icon?.let {
                 Image(
-                    bitmap = it.toBitmap().asImageBitmap(),
+                    bitmap = it,
                     contentDescription = app.label,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop

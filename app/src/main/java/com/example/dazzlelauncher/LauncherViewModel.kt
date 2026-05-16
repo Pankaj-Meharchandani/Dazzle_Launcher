@@ -6,6 +6,8 @@ import android.content.Intent
 import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
 import android.os.Process
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.AndroidViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,10 +40,13 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         val launcherApps = getApplication<Application>().getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
         val user = Process.myUserHandle()
         val apps = launcherApps.getActivityList(null, user).map { info ->
+            val iconDrawable = info.getIcon(0)
+            // Limit icon size for better performance and memory usage
+            val bitmap = iconDrawable?.toBitmap(width = 200, height = 200)
             AppInfo(
                 label = info.label.toString(),
                 packageName = info.applicationInfo.packageName,
-                icon = info.getIcon(0)
+                icon = bitmap?.asImageBitmap()
             )
         }.sortedBy { it.label }
         
