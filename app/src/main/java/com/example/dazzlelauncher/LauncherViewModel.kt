@@ -3,7 +3,9 @@ package com.example.dazzlelauncher
 import android.app.Application
 import android.content.Context
 import android.content.Intent
+import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
+import android.os.Process
 import androidx.lifecycle.AndroidViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,14 +35,13 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun loadApps() {
-        val intent = Intent(Intent.ACTION_MAIN, null).apply {
-            addCategory(Intent.CATEGORY_LAUNCHER)
-        }
-        val apps = packageManager.queryIntentActivities(intent, 0).map { resolveInfo ->
+        val launcherApps = getApplication<Application>().getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+        val user = Process.myUserHandle()
+        val apps = launcherApps.getActivityList(null, user).map { info ->
             AppInfo(
-                label = resolveInfo.loadLabel(packageManager).toString(),
-                packageName = resolveInfo.activityInfo.packageName,
-                icon = resolveInfo.loadIcon(packageManager)
+                label = info.label.toString(),
+                packageName = info.applicationInfo.packageName,
+                icon = info.getIcon(0)
             )
         }.sortedBy { it.label }
         
@@ -88,6 +89,24 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         val intent = packageManager.getLaunchIntentForPackage(packageName)
         if (intent != null) {
             context.startActivity(intent)
+        }
+    }
+
+    fun isDefaultLauncher(context: Context): Boolean {
+        val intent = Intent(Intent.ACTION_MAIN)
+        intent.addCategory(Intent.CATEGORY_HOME)
+        val resolveInfo = packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+        return resolveInfo?.activityInfo?.packageName == context.packageName
+    }
+
+    fun openNotifications(context: Context) {
+        try {
+            val statusBarService = context.getSystemService("statusbar")
+            val statusBarManager = Class.forName("android.app.StatusBarManager")
+            val method = statusBarManager.getMethod("expandNotificationsPanel")
+            method.invoke(statusBarService)
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 }
