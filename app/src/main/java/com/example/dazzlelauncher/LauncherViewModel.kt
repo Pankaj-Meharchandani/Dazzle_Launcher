@@ -57,6 +57,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private val _useWallpaper = MutableStateFlow(prefs.getBoolean("use_wallpaper", true))
     val useWallpaper: StateFlow<Boolean> = _useWallpaper.asStateFlow()
 
+    private val _blurDrawer = MutableStateFlow(prefs.getBoolean("blur_drawer", true))
+    val blurDrawer: StateFlow<Boolean> = _blurDrawer.asStateFlow()
+
     private val _isDefault = MutableStateFlow(true)
     val isDefault: StateFlow<Boolean> = _isDefault.asStateFlow()
 
@@ -199,6 +202,11 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun setUseWallpaper(use: Boolean) {
         _useWallpaper.value = use
         prefs.edit().putBoolean("use_wallpaper", use).apply()
+    }
+
+    fun setBlurDrawer(blur: Boolean) {
+        _blurDrawer.value = blur
+        prefs.edit().putBoolean("blur_drawer", blur).apply()
     }
 
 

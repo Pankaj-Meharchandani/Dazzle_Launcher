@@ -47,6 +47,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -116,6 +117,7 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
     val allApps by viewModel.allApps.collectAsState()
     val mode by viewModel.mode.collectAsState()
     val useWallpaper by viewModel.useWallpaper.collectAsState()
+    val blurDrawer by viewModel.blurDrawer.collectAsState()
     val isDefault by viewModel.isDefault.collectAsState()
     val shouldUseDarkText by viewModel.shouldUseDarkText.collectAsState()
     val context = LocalContext.current
@@ -128,12 +130,15 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
         )
     )
 
-    // Smoothly animate home screen alpha based on drawer expansion
-    val homeAlpha by animateFloatAsState(
-        targetValue = if (scaffoldState.bottomSheetState.targetValue == SheetValue.Expanded) 0f else 1f,
+    // Smoothly animate home screen alpha and blur based on drawer expansion
+    val drawerExpansion by animateFloatAsState(
+        targetValue = if (scaffoldState.bottomSheetState.targetValue == SheetValue.Expanded) 1f else 0f,
         animationSpec = spring(stiffness = Spring.StiffnessLow),
-        label = "homeAlpha"
+        label = "drawerExpansion"
     )
+
+    val homeAlpha = 1f - (drawerExpansion * 0.8f) // Fade out slightly
+    val homeBlur = if (blurDrawer) (drawerExpansion * 20f).dp else 0.dp
 
     var showSettings by remember { mutableStateOf(false) }
 
@@ -145,8 +150,10 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
         SettingsScreen(
             currentMode = mode,
             useWallpaper = useWallpaper,
+            blurDrawer = blurDrawer,
             onModeChange = { viewModel.setMode(it) },
             onWallpaperToggle = { viewModel.setUseWallpaper(it) },
+            onBlurDrawerToggle = { viewModel.setBlurDrawer(it) },
             onClose = { showSettings = false }
         )
     } else {
@@ -175,7 +182,11 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
                     BottomSheetDefaults.DragHandle()
                 }
             },
-            sheetContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+            sheetContainerColor = if (blurDrawer) {
+                MaterialTheme.colorScheme.surface.copy(alpha = 0.4f)
+            } else {
+                MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+            },
             sheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
             containerColor = Color.Transparent
         ) { innerPadding ->
@@ -184,7 +195,15 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
                     .padding(innerPadding)
                     .fillMaxSize()
                     .background(if (useWallpaper) Color.Transparent else MaterialTheme.colorScheme.background)
-                    .graphicsLayer { alpha = homeAlpha }
+                    .graphicsLayer { 
+                        alpha = homeAlpha
+                        // Only works on API 31+
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            renderEffect = android.graphics.RenderEffect.createBlurEffect(
+                                homeBlur.toPx(), homeBlur.toPx(), android.graphics.Shader.TileMode.CLAMP
+                            ).asComposeRenderEffect()
+                        }
+                    }
             ) {
                 HomeScreen(
                     apps = homeApps,
@@ -232,8 +251,8 @@ fun HomeScreen(
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val totalHeight = maxHeight
-        // Reserve height for: Top padding (80), Banner (~60), Title (~80), Dock area (~150), bottom padding (16)
-        val reservedHeight = 80.dp + (if (!isDefault) 60.dp else 0.dp) + 80.dp + 150.dp + 16.dp
+        // Reserve height for: Top padding (80), Banner (~60), Title area (~100), Dock area (~150), bottom padding (16)
+        val reservedHeight = 80.dp + (if (!isDefault) 60.dp else 0.dp) + 100.dp + 150.dp + 16.dp
         val pagerHeight = totalHeight - reservedHeight
         val rows = (pagerHeight.value / 105).toInt().coerceIn(1, 6)
         val itemsPerPage = rows * 4
@@ -459,45 +478,47 @@ fun AppDrawerContent(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-            placeholder = { Text("Search apps...") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-            shape = RoundedCornerShape(12.dp),
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                focusedBorderColor = Color.Transparent,
-                unfocusedBorderColor = Color.Transparent
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                placeholder = { Text("Search apps...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                shape = RoundedCornerShape(12.dp),
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent
+                )
             )
-        )
-        
-        LazyVerticalGrid(
-            state = gridState,
-            columns = GridCells.Fixed(4),
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            items(
-                items = filteredApps,
-                key = { it.key }
-            ) { app ->
-                val isOnHome = homeApps.any { it.packageName == app.packageName } || 
-                               dockApps.any { it.packageName == app.packageName }
-                
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    AppItem(app, onAppClick)
-                    Checkbox(
-                        checked = isOnHome,
-                        onCheckedChange = { onToggleHome(app) },
-                        modifier = Modifier.scale(0.7f)
-                    )
+            
+            LazyVerticalGrid(
+                state = gridState,
+                columns = GridCells.Fixed(4),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(
+                    items = filteredApps,
+                    key = { it.key }
+                ) { app ->
+                    val isOnHome = homeApps.any { it.packageName == app.packageName } || 
+                                   dockApps.any { it.packageName == app.packageName }
+                    
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        AppItem(app, onAppClick)
+                        Checkbox(
+                            checked = isOnHome,
+                            onCheckedChange = { onToggleHome(app) },
+                            modifier = Modifier.scale(0.7f)
+                        )
+                    }
                 }
             }
         }
@@ -508,8 +529,10 @@ fun AppDrawerContent(
 fun SettingsScreen(
     currentMode: LauncherMode,
     useWallpaper: Boolean,
+    blurDrawer: Boolean,
     onModeChange: (LauncherMode) -> Unit,
     onWallpaperToggle: (Boolean) -> Unit,
+    onBlurDrawerToggle: (Boolean) -> Unit,
     onClose: () -> Unit
 ) {
     BackHandler(onBack = onClose)
@@ -538,6 +561,7 @@ fun SettingsScreen(
             
             Text("Appearance", style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(16.dp))
+            
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -548,6 +572,18 @@ fun SettingsScreen(
                     Text("Use your home screen background", style = MaterialTheme.typography.bodySmall)
                 }
                 Switch(checked = useWallpaper, onCheckedChange = onWallpaperToggle)
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("Frosted App Drawer", style = MaterialTheme.typography.titleMedium)
+                    Text("Blurred wallpaper in drawer", style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(checked = blurDrawer, onCheckedChange = onBlurDrawerToggle)
             }
 
             Spacer(modifier = Modifier.height(32.dp))
