@@ -273,6 +273,7 @@ fun HomeScreen(
             currentTime = Calendar.getInstance()
             viewModel.fetchNextAlarm()
             viewModel.fetchCalendarEvent()
+            viewModel.fetchUsageStats()
             val seconds = Calendar.getInstance().get(Calendar.SECOND)
             kotlinx.coroutines.delay((60 - seconds) * 1000L)
         }
@@ -402,7 +403,7 @@ fun HomeScreen(
                 }
             }
             
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(44.dp))
 
             HorizontalPager(
                 state = pagerState,
@@ -673,7 +674,7 @@ fun SettingsScreen(
                 Text("Settings", style = MaterialTheme.typography.displaySmall)
             }
             
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(44.dp))
             
             Text("Appearance", style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(16.dp))
@@ -748,7 +749,7 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(44.dp))
             Text("Launcher Mode", style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(16.dp))
             
