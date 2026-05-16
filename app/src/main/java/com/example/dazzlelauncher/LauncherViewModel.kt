@@ -295,12 +295,16 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             }
         }
 
-        val appUsageList = stats.map { (pkg, time) ->
-            AppUsageInfo(
-                appInfo = _allApps.value.find { it.packageName == pkg },
-                packageName = pkg,
-                usageTime = time
-            )
+        val appUsageList = stats.mapNotNull { (pkg, time) ->
+            val appInfo = _allApps.value.find { it.packageName == pkg }
+            // Only show apps that are in our launcher (have an icon and launchable activity)
+            if (appInfo != null) {
+                AppUsageInfo(
+                    appInfo = appInfo,
+                    packageName = pkg,
+                    usageTime = time
+                )
+            } else null
         }.filter { it.usageTime > 0 && it.packageName != context.packageName }
         .sortedByDescending { it.usageTime }
         

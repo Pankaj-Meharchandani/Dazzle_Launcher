@@ -230,12 +230,15 @@ fun HomeScreen(
     useWallpaper: Boolean
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val availableHeight = maxHeight
-        // Calculate rows: Title area (~120dp) + Dock area (~150dp) are outside pager weight
-        // But weight(1f) takes the remaining. Let's estimate items based on height.
-        // On a 800dp screen, pager might get 500dp. 5 rows * 100dp = 500dp.
-        // We'll use a safer approach: calculate rows based on pager's actual size.
-        
+        val totalHeight = maxHeight
+        // Reserve height for: Top padding (80), Banner (~60), Title (~80), Dock area (~150), bottom padding (16)
+        val reservedHeight = 80.dp + (if (!isDefault) 60.dp else 0.dp) + 80.dp + 150.dp + 16.dp
+        val pagerHeight = totalHeight - reservedHeight
+        val rows = (pagerHeight.value / 105).toInt().coerceIn(1, 6)
+        val itemsPerPage = rows * 4
+        val appPages = if (apps.isEmpty()) 1 else (apps.size + itemsPerPage - 1) / itemsPerPage
+        val pagerState = rememberPagerState(initialPage = 1, pageCount = { appPages + 1 })
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -277,103 +280,126 @@ fun HomeScreen(
                 }
             }
 
-            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                    val pagerHeight = maxHeight
-                    // Each row is ~105dp. Let's calculate how many fit.
-                    val rows = (pagerHeight.value / 105).toInt().coerceIn(1, 6)
-                    val itemsPerPage = rows * 4
-                    val appPages = if (apps.isEmpty()) 1 else (apps.size + itemsPerPage - 1) / itemsPerPage
-                    val pagerState = rememberPagerState(initialPage = 1, pageCount = { appPages + 1 })
+            val titleText = if (pagerState.currentPage == 0) "Screen Time" else "Dazzle"
+            Text(
+                text = titleText,
+                style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold),
+                modifier = Modifier.padding(horizontal = 24.dp),
+                color = if (shouldUseDarkText) Color.Black else MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
 
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        val titleText = if (pagerState.currentPage == 0) "Screen Time" else "Dazzle"
-                        Text(
-                            text = titleText,
-                            style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold),
-                            modifier = Modifier.padding(horizontal = 24.dp),
-                            color = if (shouldUseDarkText) Color.Black else MaterialTheme.colorScheme.primary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        HorizontalPager(
-                            state = pagerState,
-                            modifier = Modifier.weight(1f).fillMaxWidth().clipToBounds(),
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
-                            pageSpacing = 16.dp,
-                            beyondViewportPageCount = 1
-                        ) { page ->
-                            if (page == 0) {
-                                ScreentimePage(viewModel = viewModel, shouldUseDarkText = shouldUseDarkText, useWallpaper = useWallpaper)
-                            } else {
-                                val appPage = page - 1
-                                val startIdx = appPage * itemsPerPage
-                                val endIdx = minOf(startIdx + itemsPerPage, apps.size)
-                                val pageApps = if (apps.isEmpty()) emptyList() else apps.subList(startIdx, endIdx)
-                                
-                                LazyVerticalGrid(
-                                    columns = GridCells.Fixed(4),
-                                    modifier = Modifier.fillMaxSize(),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                    userScrollEnabled = false,
-                                    contentPadding = PaddingValues(bottom = 16.dp)
-                                ) {
-                                    items(
-                                        items = pageApps,
-                                        key = { it.key }
-                                    ) { app ->
-                                        AppItem(
-                                            app = app, 
-                                            onClick = onAppClick,
-                                            onLongClick = { onToggleDock(app) },
-                                            labelColor = if (shouldUseDarkText) Color.Black else Color.White
-                                        )
-                                    }
-                                }
-                            }
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.weight(1f).fillMaxWidth().clipToBounds(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                pageSpacing = 16.dp,
+                beyondViewportPageCount = 1
+            ) { page ->
+                if (page == 0) {
+                    ScreentimePage(viewModel = viewModel, shouldUseDarkText = shouldUseDarkText, useWallpaper = useWallpaper)
+                } else {
+                    val appPage = page - 1
+                    val startIdx = appPage * itemsPerPage
+                    val endIdx = minOf(startIdx + itemsPerPage, apps.size)
+                    val pageApps = if (apps.isEmpty()) emptyList() else apps.subList(startIdx, endIdx)
+                    
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(4),
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        userScrollEnabled = false,
+                        contentPadding = PaddingValues(bottom = 16.dp)
+                    ) {
+                        items(
+                            items = pageApps,
+                            key = { it.key }
+                        ) { app ->
+                            AppItem(
+                                app = app, 
+                                onClick = onAppClick,
+                                onLongClick = { onToggleDock(app) },
+                                labelColor = if (shouldUseDarkText) Color.Black else Color.White
+                            )
                         }
                     }
+                }
+            }
+
+            // Indicator
+            Row(
+                modifier = Modifier.fillMaxWidth().height(24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                repeat(pagerState.pageCount) { iteration ->
+                    val color = if (pagerState.currentPage == iteration) 
+                        MaterialTheme.colorScheme.primary else (if (shouldUseDarkText) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.3f))
                     
-                    // Move indicator inside BoxWithConstraints to use pagerState
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-                         Row(
-                            modifier = Modifier.height(24.dp).padding(bottom = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            repeat(pagerState.pageCount) { iteration ->
-                                val color = if (pagerState.currentPage == iteration) 
-                                    MaterialTheme.colorScheme.primary else (if (shouldUseDarkText) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.3f))
-                                
-                                if (iteration == 0) {
-                                    Box(
-                                        modifier = Modifier
-                                            .padding(horizontal = 4.dp)
-                                            .clip(RoundedCornerShape(2.dp))
-                                            .background(color)
-                                            .size(width = 12.dp, height = 4.dp)
-                                    )
-                                } else {
-                                    Box(
-                                        modifier = Modifier
-                                            .padding(3.dp)
-                                            .clip(CircleShape)
-                                            .background(color)
-                                            .size(6.dp)
-                                    )
-                                }
-                            }
-                        }
+                    if (iteration == 0) {
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(color)
+                                .size(width = 12.dp, height = 4.dp)
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .padding(3.dp)
+                                .clip(CircleShape)
+                                .background(color)
+                                .size(6.dp)
+                        )
                     }
                 }
             }
             
             Spacer(modifier = Modifier.height(16.dp))
-            Dock(apps = dockApps, onAppClick = onAppClick, onLongClick = onToggleDock)
+
+            if (pagerState.currentPage == 0) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(100.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .clickable { onLongClick() }
+                            .padding(4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(60.dp)
+                                .clip(HexShape)
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Launcher Settings",
+                                modifier = Modifier.size(32.dp),
+                                tint = if (shouldUseDarkText) Color.Black else Color.White
+                            )
+                        }
+                        Text(
+                            text = "Settings",
+                            fontSize = 11.sp,
+                            color = if (shouldUseDarkText) Color.Black else Color.White,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
+            } else {
+                Dock(apps = dockApps, onAppClick = onAppClick, onLongClick = onToggleDock)
+            }
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
