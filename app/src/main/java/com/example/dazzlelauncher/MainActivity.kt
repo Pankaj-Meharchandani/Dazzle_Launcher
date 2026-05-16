@@ -171,7 +171,9 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
                                 viewModel.launchApp(context, pkg)
                                 scope.launch { scaffoldState.bottomSheetState.partialExpand() }
                             },
-                            onToggleHome = { viewModel.toggleHomeApp(it) }
+                            onToggleHome = { viewModel.toggleHomeApp(it) },
+                            shouldUseDarkText = shouldUseDarkText,
+                            blurDrawer = blurDrawer
                         )
                     }
                 }
@@ -354,7 +356,7 @@ fun HomeScreen(
             ) {
                 repeat(pagerState.pageCount) { iteration ->
                     val color = if (pagerState.currentPage == iteration) 
-                        MaterialTheme.colorScheme.primary else (if (shouldUseDarkText) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.3f))
+                        MaterialTheme.colorScheme.primary else (if (shouldUseDarkText) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.4f))
                     
                     if (iteration == 0) {
                         Box(
@@ -395,7 +397,7 @@ fun HomeScreen(
                             modifier = Modifier
                                 .size(60.dp)
                                 .clip(HexShape)
-                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                                .background(if (shouldUseDarkText) Color.Black.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -460,7 +462,9 @@ fun AppDrawerContent(
     dockApps: List<AppInfo>,
     isExpanded: Boolean,
     onAppClick: (String) -> Unit,
-    onToggleHome: (AppInfo) -> Unit
+    onToggleHome: (AppInfo) -> Unit,
+    shouldUseDarkText: Boolean,
+    blurDrawer: Boolean
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val gridState = rememberLazyGridState()
@@ -478,21 +482,31 @@ fun AppDrawerContent(
         }
     }
 
+    val labelColor = if (blurDrawer) {
+        if (shouldUseDarkText) Color.Black else Color.White
+    } else {
+        if (isSystemInDarkTheme()) Color.White else MaterialTheme.colorScheme.onSurface
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                placeholder = { Text("Search apps...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                placeholder = { Text("Search apps...", color = labelColor.copy(alpha = 0.6f)) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = labelColor.copy(alpha = 0.7f)) },
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true,
+                textStyle = TextStyle(color = labelColor),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedContainerColor = labelColor.copy(alpha = 0.1f),
+                    unfocusedContainerColor = labelColor.copy(alpha = 0.1f),
                     focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent
+                    unfocusedBorderColor = Color.Transparent,
+                    cursorColor = labelColor,
+                    focusedTextColor = labelColor,
+                    unfocusedTextColor = labelColor
                 )
             )
             
@@ -512,11 +526,15 @@ fun AppDrawerContent(
                                    dockApps.any { it.packageName == app.packageName }
                     
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        AppItem(app, onAppClick)
+                        AppItem(app, onAppClick, labelColor = labelColor)
                         Checkbox(
                             checked = isOnHome,
                             onCheckedChange = { onToggleHome(app) },
-                            modifier = Modifier.scale(0.7f)
+                            modifier = Modifier.scale(0.7f),
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = MaterialTheme.colorScheme.primary,
+                                uncheckedColor = labelColor.copy(alpha = 0.6f)
+                            )
                         )
                     }
                 }
