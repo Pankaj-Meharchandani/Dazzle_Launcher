@@ -189,7 +189,7 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
                     apps = homeApps,
                     dockApps = dockApps,
                     onAppClick = { pkg -> viewModel.launchApp(context, pkg) },
-                    onLongClick = { showSettings = true },
+                    onOpenSettings = { showSettings = true },
                     isDefault = isDefault,
                     onSetDefault = {
                         val intent = Intent(Settings.ACTION_HOME_SETTINGS)
@@ -219,7 +219,7 @@ fun HomeScreen(
     apps: List<AppInfo>,
     dockApps: List<AppInfo>,
     onAppClick: (String) -> Unit,
-    onLongClick: () -> Unit,
+    onOpenSettings: () -> Unit,
     isDefault: Boolean,
     onSetDefault: () -> Unit,
     onSwipeUp: () -> Unit,
@@ -256,10 +256,6 @@ fun HomeScreen(
                         }
                     )
                 }
-                .combinedClickable(
-                    onClick = {},
-                    onLongClick = onLongClick
-                )
                 .padding(top = 80.dp)
         ) {
             if (!isDefault) {
@@ -371,7 +367,7 @@ fun HomeScreen(
                 ) {
                     Column(
                         modifier = Modifier
-                            .clickable { onLongClick() }
+                            .clickable { onOpenSettings() }
                             .padding(4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
