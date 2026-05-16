@@ -12,9 +12,12 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -41,6 +44,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -109,6 +113,13 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
         )
     )
 
+    // Smoothly animate home screen alpha based on drawer expansion
+    val homeAlpha by animateFloatAsState(
+        targetValue = if (scaffoldState.bottomSheetState.targetValue == SheetValue.Expanded) 0f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "homeAlpha"
+    )
+
     var showSettings by remember { mutableStateOf(false) }
     var isDefault by remember { mutableStateOf(true) }
 
@@ -163,6 +174,7 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
                     .padding(innerPadding)
                     .fillMaxSize()
                     .background(if (useWallpaper) Color.Transparent else MaterialTheme.colorScheme.background)
+                    .graphicsLayer { alpha = homeAlpha }
             ) {
                 HomeScreen(
                     apps = homeApps,
@@ -268,7 +280,7 @@ fun HomeScreen(
             LazyVerticalGrid(
                 columns = GridCells.Fixed(4),
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 userScrollEnabled = false
             ) {
@@ -323,7 +335,7 @@ fun Dock(apps: List<AppInfo>, onAppClick: (String) -> Unit, onLongClick: (AppInf
             .padding(horizontal = 16.dp)
             .fillMaxWidth()
             .height(100.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        color = Color.Black.copy(alpha = 0.3f),
         shape = RoundedCornerShape(32.dp),
         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
     ) {
