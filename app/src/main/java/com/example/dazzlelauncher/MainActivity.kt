@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -266,6 +267,7 @@ fun HomeScreen(
     useWallpaper: Boolean,
     is24Hour: Boolean
 ) {
+    val context = LocalContext.current
     var currentTime by remember { mutableStateOf(Calendar.getInstance()) }
     
     LaunchedEffect(Unit) {
@@ -476,11 +478,12 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             if (pagerState.currentPage == 0) {
-                Box(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(100.dp),
-                    contentAlignment = Alignment.Center
+                    horizontalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(
                         modifier = Modifier
@@ -504,6 +507,46 @@ fun HomeScreen(
                         }
                         Text(
                             text = "Settings",
+                            fontSize = 11.sp,
+                            color = if (shouldUseDarkText) Color.Black else Color.White,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .clickable {
+                                val packageName = "com.example.waller"
+                                val intent = context.packageManager.getLaunchIntentForPackage(packageName)
+                                if (intent != null) {
+                                    context.startActivity(intent)
+                                } else {
+                                    val browserIntent = Intent(
+                                        Intent.ACTION_VIEW,
+                                        Uri.parse("https://github.com/Pankaj-Meharchandani/Waller/releases/latest")
+                                    )
+                                    context.startActivity(browserIntent)
+                                }
+                            }
+                            .padding(4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(60.dp)
+                                .clip(HexShape)
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Wallpaper,
+                                contentDescription = "Wallpaper",
+                                modifier = Modifier.size(32.dp),
+                                tint = if (shouldUseDarkText || !isSystemInDarkTheme()) Color.Black else Color.White
+                            )
+                        }
+                        Text(
+                            text = "Wallpaper",
                             fontSize = 11.sp,
                             color = if (shouldUseDarkText) Color.Black else Color.White,
                             modifier = Modifier.padding(top = 4.dp)
