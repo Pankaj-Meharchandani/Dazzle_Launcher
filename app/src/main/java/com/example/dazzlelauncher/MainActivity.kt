@@ -118,6 +118,7 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
     val mode by viewModel.mode.collectAsState()
     val useWallpaper by viewModel.useWallpaper.collectAsState()
     val blurDrawer by viewModel.blurDrawer.collectAsState()
+    val is24Hour by viewModel.is24Hour.collectAsState()
     val isDefault by viewModel.isDefault.collectAsState()
     val shouldUseDarkText by viewModel.shouldUseDarkText.collectAsState()
     val context = LocalContext.current
@@ -151,9 +152,11 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
             currentMode = mode,
             useWallpaper = useWallpaper,
             blurDrawer = blurDrawer,
+            is24Hour = is24Hour,
             onModeChange = { viewModel.setMode(it) },
             onWallpaperToggle = { viewModel.setUseWallpaper(it) },
             onBlurDrawerToggle = { viewModel.setBlurDrawer(it) },
+            onTimeFormatToggle = { viewModel.setIs24Hour(it) },
             onClose = { showSettings = false }
         )
     } else {
@@ -228,7 +231,8 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
                     onToggleDock = { viewModel.toggleDockApp(it) },
                     shouldUseDarkText = shouldUseDarkText,
                     viewModel = viewModel,
-                    useWallpaper = useWallpaper
+                    useWallpaper = useWallpaper,
+                    is24Hour = is24Hour
                 )
             }
         }
@@ -249,12 +253,28 @@ fun HomeScreen(
     onToggleDock: (AppInfo) -> Unit,
     shouldUseDarkText: Boolean,
     viewModel: LauncherViewModel,
-    useWallpaper: Boolean
+    useWallpaper: Boolean,
+    is24Hour: Boolean
 ) {
+    var currentTime by remember { mutableStateOf(Calendar.getInstance()) }
+    
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentTime = Calendar.getInstance()
+            val seconds = Calendar.getInstance().get(Calendar.SECOND)
+            kotlinx.coroutines.delay((60 - seconds) * 1000L)
+        }
+    }
+
+    val timeFormatter = remember(is24Hour) { 
+        SimpleDateFormat(if (is24Hour) "HH:mm" else "h:mm", Locale.getDefault()) 
+    }
+    val dateFormatter = remember { SimpleDateFormat("EEE, MMM d", Locale.getDefault()) }
+
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val totalHeight = maxHeight
-        // Reserve height for: Top padding (80), Banner (~60), Title area (~100), Dock area (~150), bottom padding (16)
-        val reservedHeight = 80.dp + (if (!isDefault) 60.dp else 0.dp) + 100.dp + 150.dp + 16.dp
+        // Reserve height for: Top padding (80), Banner (~60), Clock area (~120), Dock area (~150), bottom padding (16)
+        val reservedHeight = 80.dp + (if (!isDefault) 60.dp else 0.dp) + 120.dp + 150.dp + 16.dp
         val pagerHeight = totalHeight - reservedHeight
         val rows = (pagerHeight.value / 105).toInt().coerceIn(1, 6)
         val itemsPerPage = rows * 4
@@ -298,15 +318,34 @@ fun HomeScreen(
                 }
             }
 
-            val titleText = if (pagerState.currentPage == 0) "Screen Time" else "Dazzle"
-            Text(
-                text = titleText,
-                style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold),
-                modifier = Modifier.padding(horizontal = 24.dp),
-                color = if (shouldUseDarkText) Color.Black else MaterialTheme.colorScheme.primary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            val titleText = if (pagerState.currentPage == 0) "Screen Time" else ""
+            
+            if (pagerState.currentPage == 0) {
+                Text(
+                    text = titleText,
+                    style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold),
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                    color = if (shouldUseDarkText) Color.Black else MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            } else {
+                Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+                    Text(
+                        text = timeFormatter.format(currentTime.time),
+                        style = MaterialTheme.typography.displayLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 64.sp
+                        ),
+                        color = if (shouldUseDarkText) Color.Black else Color.White
+                    )
+                    Text(
+                        text = dateFormatter.format(currentTime.time),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = if (shouldUseDarkText) Color.Black.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.7f)
+                    )
+                }
+            }
             
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -397,7 +436,7 @@ fun HomeScreen(
                             modifier = Modifier
                                 .size(60.dp)
                                 .clip(HexShape)
-                                .background(if (shouldUseDarkText) Color.Black.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant),
+                                .background(if (shouldUseDarkText) Color.Black.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -548,9 +587,11 @@ fun SettingsScreen(
     currentMode: LauncherMode,
     useWallpaper: Boolean,
     blurDrawer: Boolean,
+    is24Hour: Boolean,
     onModeChange: (LauncherMode) -> Unit,
     onWallpaperToggle: (Boolean) -> Unit,
     onBlurDrawerToggle: (Boolean) -> Unit,
+    onTimeFormatToggle: (Boolean) -> Unit,
     onClose: () -> Unit
 ) {
     BackHandler(onBack = onClose)
@@ -602,6 +643,18 @@ fun SettingsScreen(
                     Text("Blurred wallpaper in drawer", style = MaterialTheme.typography.bodySmall)
                 }
                 Switch(checked = blurDrawer, onCheckedChange = onBlurDrawerToggle)
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("24-Hour Format", style = MaterialTheme.typography.titleMedium)
+                    Text("Switch between 12h and 24h clock", style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(checked = is24Hour, onCheckedChange = onTimeFormatToggle)
             }
 
             Spacer(modifier = Modifier.height(32.dp))

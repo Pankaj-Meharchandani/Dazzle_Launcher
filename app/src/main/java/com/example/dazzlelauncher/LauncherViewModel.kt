@@ -60,6 +60,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private val _blurDrawer = MutableStateFlow(prefs.getBoolean("blur_drawer", true))
     val blurDrawer: StateFlow<Boolean> = _blurDrawer.asStateFlow()
 
+    private val _is24Hour = MutableStateFlow(prefs.getBoolean("is_24h", true))
+    val is24Hour: StateFlow<Boolean> = _is24Hour.asStateFlow()
+
     private val _isDefault = MutableStateFlow(true)
     val isDefault: StateFlow<Boolean> = _isDefault.asStateFlow()
 
@@ -207,6 +210,11 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun setBlurDrawer(blur: Boolean) {
         _blurDrawer.value = blur
         prefs.edit().putBoolean("blur_drawer", blur).apply()
+    }
+
+    fun setIs24Hour(is24: Boolean) {
+        _is24Hour.value = is24
+        prefs.edit().putBoolean("is_24h", is24).apply()
     }
 
 
