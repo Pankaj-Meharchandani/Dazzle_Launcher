@@ -46,6 +46,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             AppInfo(
                 label = info.label.toString(),
                 packageName = info.applicationInfo.packageName,
+                className = info.name,
                 icon = bitmap?.asImageBitmap()
             )
         }.sortedBy { it.label }
@@ -57,13 +58,13 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     private fun updateHomeApps(apps: List<AppInfo>) {
         if (_mode.value == LauncherMode.HOME_ONLY) {
-            _homeApps.value = apps
+            _homeApps.value = apps.shuffled()
         } else {
             val savedHomeApps = prefs.getStringSet("home_apps", null)
             if (savedHomeApps != null) {
-                _homeApps.value = apps.filter { it.packageName in savedHomeApps }
+                _homeApps.value = apps.filter { it.packageName in savedHomeApps }.shuffled()
             } else {
-                _homeApps.value = apps.take(12)
+                _homeApps.value = apps.take(12).shuffled()
             }
         }
     }

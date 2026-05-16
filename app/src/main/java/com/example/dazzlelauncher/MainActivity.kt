@@ -53,7 +53,7 @@ class MainActivity : ComponentActivity() {
 
     private val unlockReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == Intent.ACTION_USER_PRESENT) {
+            if (intent?.action == Intent.ACTION_SCREEN_OFF || intent?.action == Intent.ACTION_USER_PRESENT) {
                 viewModel.shuffleHomeApps()
             }
         }
@@ -63,7 +63,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val filter = IntentFilter(Intent.ACTION_USER_PRESENT)
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_USER_PRESENT)
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(unlockReceiver, filter, RECEIVER_EXPORTED)
         } else {
@@ -121,16 +124,18 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
             scaffoldState = scaffoldState,
             sheetContent = {
                 if (mode == LauncherMode.HOME_AND_DRAWER) {
-                    AppDrawerContent(
-                        apps = allApps,
-                        homeApps = homeApps,
-                        isExpanded = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded,
-                        onAppClick = { pkg ->
-                            viewModel.launchApp(context, pkg)
-                            scope.launch { scaffoldState.bottomSheetState.partialExpand() }
-                        },
-                        onToggleHome = { viewModel.toggleHomeApp(it) }
-                    )
+                    Box(modifier = Modifier.fillMaxHeight(0.92f)) {
+                        AppDrawerContent(
+                            apps = allApps,
+                            homeApps = homeApps,
+                            isExpanded = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded,
+                            onAppClick = { pkg ->
+                                viewModel.launchApp(context, pkg)
+                                scope.launch { scaffoldState.bottomSheetState.partialExpand() }
+                            },
+                            onToggleHome = { viewModel.toggleHomeApp(it) }
+                        )
+                    }
                 }
             },
             sheetPeekHeight = if (mode == LauncherMode.HOME_AND_DRAWER) 80.dp else 0.dp,
@@ -251,7 +256,10 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 userScrollEnabled = false
             ) {
-                items(pageApps) { app ->
+                items(
+                    items = pageApps,
+                    key = { it.key }
+                ) { app ->
                     AppItem(app, onAppClick)
                 }
             }
@@ -294,10 +302,8 @@ fun AppDrawerContent(
     var searchQuery by remember { mutableStateOf("") }
     val gridState = rememberLazyGridState()
 
-    // Reset scroll when not expanded to ensure it starts from top next time
-    val shouldReset = remember(isExpanded) { !isExpanded }
-    LaunchedEffect(shouldReset) {
-        if (shouldReset) {
+    LaunchedEffect(isExpanded) {
+        if (!isExpanded) {
             gridState.scrollToItem(0)
             searchQuery = ""
         }
@@ -334,7 +340,10 @@ fun AppDrawerContent(
             verticalArrangement = Arrangement.spacedBy(24.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            items(filteredApps) { app ->
+            items(
+                items = filteredApps,
+                key = { it.key }
+            ) { app ->
                 val isOnHome = homeApps.any { it.packageName == app.packageName }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     AppItem(app, onAppClick)
@@ -407,6 +416,8 @@ fun ModeOption(title: String, description: String, selected: Boolean, onClick: (
     }
 }
 
+private val HexShape = HexagonShape()
+
 @Composable
 fun AppItem(app: AppInfo, onClick: (String) -> Unit) {
     Column(
@@ -418,7 +429,7 @@ fun AppItem(app: AppInfo, onClick: (String) -> Unit) {
         Box(
             modifier = Modifier
                 .size(60.dp)
-                .clip(HexagonShape())
+                .clip(HexShape)
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
             app.icon?.let {
