@@ -35,6 +35,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -511,9 +512,28 @@ fun SettingsScreen(
     onWallpaperToggle: (Boolean) -> Unit,
     onClose: () -> Unit
 ) {
-    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
-            Text("Settings", style = MaterialTheme.typography.displaySmall)
+    BackHandler(onBack = onClose)
+    
+    Surface(
+        modifier = Modifier.fillMaxSize(), 
+        color = MaterialTheme.colorScheme.background
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .padding(24.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onClose, modifier = Modifier.offset(x = (-12).dp)) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                }
+                Text("Settings", style = MaterialTheme.typography.displaySmall)
+            }
+            
             Spacer(modifier = Modifier.height(32.dp))
             
             Text("Appearance", style = MaterialTheme.typography.titleLarge)
@@ -551,7 +571,11 @@ fun SettingsScreen(
             )
             
             Spacer(modifier = Modifier.weight(1f))
-            Button(onClick = onClose, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+            Button(
+                onClick = onClose, 
+                modifier = Modifier.fillMaxWidth().navigationBarsPadding(), 
+                shape = RoundedCornerShape(12.dp)
+            ) {
                 Text("Back to Home")
             }
         }
