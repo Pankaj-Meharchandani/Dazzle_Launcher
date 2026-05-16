@@ -103,6 +103,7 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
     val allApps by viewModel.allApps.collectAsState()
     val mode by viewModel.mode.collectAsState()
     val useWallpaper by viewModel.useWallpaper.collectAsState()
+    val shouldUseDarkText by viewModel.shouldUseDarkText.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     
@@ -194,7 +195,8 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
                     onSwipeDown = {
                         viewModel.openNotifications(context)
                     },
-                    onToggleDock = { viewModel.toggleDockApp(it) }
+                    onToggleDock = { viewModel.toggleDockApp(it) },
+                    shouldUseDarkText = shouldUseDarkText
                 )
             }
         }
@@ -212,7 +214,8 @@ fun HomeScreen(
     onSetDefault: () -> Unit,
     onSwipeUp: () -> Unit,
     onSwipeDown: () -> Unit,
-    onToggleDock: (AppInfo) -> Unit
+    onToggleDock: (AppInfo) -> Unit,
+    shouldUseDarkText: Boolean
 ) {
     val itemsPerPage = 20
     val pages = if (apps.isEmpty()) 1 else (apps.size + itemsPerPage - 1) / itemsPerPage
@@ -263,7 +266,7 @@ fun HomeScreen(
             text = "Dazzle",
             style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold),
             modifier = Modifier.padding(horizontal = 24.dp),
-            color = MaterialTheme.colorScheme.primary
+            color = if (shouldUseDarkText) Color.Black else MaterialTheme.colorScheme.primary
         )
         
         Spacer(modifier = Modifier.height(48.dp))
@@ -291,7 +294,8 @@ fun HomeScreen(
                     AppItem(
                         app = app, 
                         onClick = onAppClick,
-                        onLongClick = { onToggleDock(app) }
+                        onLongClick = { onToggleDock(app) },
+                        labelColor = if (shouldUseDarkText) Color.Black else Color.White
                     )
                 }
             }
@@ -511,7 +515,8 @@ fun AppItem(
     app: AppInfo, 
     onClick: (String) -> Unit, 
     onLongClick: () -> Unit = {},
-    showLabel: Boolean = true
+    showLabel: Boolean = true,
+    labelColor: Color = if (isSystemInDarkTheme()) Color.White else MaterialTheme.colorScheme.onSurface
 ) {
     Column(
         modifier = Modifier
@@ -546,7 +551,7 @@ fun AppItem(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 4.dp),
                 lineHeight = 14.sp,
-                color = if (isSystemInDarkTheme()) Color.White else MaterialTheme.colorScheme.onSurface,
+                color = labelColor,
                 style = TextStyle(
                     shadow = Shadow(
                         color = Color.Black.copy(alpha = 0.5f),

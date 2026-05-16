@@ -1,12 +1,18 @@
 package com.example.dazzlelauncher
 
 import android.app.Application
+import android.app.WallpaperColors
+import android.app.WallpaperManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.Process
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.AndroidViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +26,7 @@ enum class LauncherMode {
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
     private val packageManager = application.packageManager
     private val prefs = application.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
+    private val wallpaperManager = WallpaperManager.getInstance(application)
 
     private val _allApps = MutableStateFlow<List<AppInfo>>(emptyList())
     val allApps: StateFlow<List<AppInfo>> = _allApps.asStateFlow()
@@ -38,8 +45,42 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private val _useWallpaper = MutableStateFlow(prefs.getBoolean("use_wallpaper", true))
     val useWallpaper: StateFlow<Boolean> = _useWallpaper.asStateFlow()
 
+    private val _shouldUseDarkText = MutableStateFlow(false)
+    val shouldUseDarkText: StateFlow<Boolean> = _shouldUseDarkText.asStateFlow()
+
+    private val wallpaperColorsListener = WallpaperManager.OnColorsChangedListener { colors, _ ->
+        updateWallpaperHints(colors)
+    }
+
     init {
         loadApps()
+        initWallpaperColors()
+    }
+
+    private fun initWallpaperColors() {
+        val colors = wallpaperManager.getWallpaperColors(WallpaperManager.FLAG_SYSTEM)
+        updateWallpaperHints(colors)
+        wallpaperManager.addOnColorsChangedListener(wallpaperColorsListener, Handler(Looper.getMainLooper()))
+    }
+
+    private fun updateWallpaperHints(colors: WallpaperColors?) {
+        if (colors == null) {
+            _shouldUseDarkText.value = false
+            return
+        }
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            _shouldUseDarkText.value = (colors.colorHints and WallpaperColors.HINT_SUPPORTS_DARK_TEXT) != 0
+        } else {
+            // Fallback for API 30: check luminance of primary color
+            val primary = colors.primaryColor.toArgb()
+            _shouldUseDarkText.value = ColorUtils.calculateLuminance(primary) > 0.5
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        wallpaperManager.removeOnColorsChangedListener(wallpaperColorsListener)
     }
 
     fun loadApps() {
