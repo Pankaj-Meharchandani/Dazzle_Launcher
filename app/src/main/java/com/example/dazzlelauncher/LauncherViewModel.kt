@@ -112,6 +112,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         
         if (isAlreadyInDock) {
             currentDock.removeAll { it.packageName == app.packageName }
+            // Add back to home if removed from dock
+            val currentHome = _homeApps.value.toMutableList()
+            if (!currentHome.any { it.packageName == app.packageName }) {
+                currentHome.add(app)
+            }
+            _homeApps.value = currentHome
         } else if (currentDock.size < 5) {
             // Remove from home if adding to dock to avoid duplicates
             val currentHome = _homeApps.value.toMutableList()

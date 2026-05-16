@@ -14,6 +14,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -201,7 +202,7 @@ fun HomeScreen(
     onSwipeDown: () -> Unit,
     onToggleDock: (AppInfo) -> Unit
 ) {
-    val itemsPerPage = 16
+    val itemsPerPage = 20
     val pages = if (apps.isEmpty()) 1 else (apps.size + itemsPerPage - 1) / itemsPerPage
     val pagerState = rememberPagerState(pageCount = { pages })
 
@@ -226,7 +227,7 @@ fun HomeScreen(
                 onClick = {},
                 onLongClick = onLongClick
             )
-            .padding(top = 48.dp)
+            .padding(top = 80.dp)
     ) {
         if (!isDefault) {
             Surface(
@@ -253,6 +254,8 @@ fun HomeScreen(
             color = MaterialTheme.colorScheme.primary
         )
         
+        Spacer(modifier = Modifier.height(48.dp))
+        
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -265,7 +268,7 @@ fun HomeScreen(
             LazyVerticalGrid(
                 columns = GridCells.Fixed(4),
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 userScrollEnabled = false
             ) {
@@ -284,7 +287,7 @@ fun HomeScreen(
 
         // Page Indicator and Dock area
         Column(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (pages > 1) {
@@ -319,12 +322,13 @@ fun Dock(apps: List<AppInfo>, onAppClick: (String) -> Unit, onLongClick: (AppInf
         modifier = Modifier
             .padding(horizontal = 16.dp)
             .fillMaxWidth()
-            .height(90.dp),
-        color = Color.White.copy(alpha = 0.15f),
-        shape = RoundedCornerShape(28.dp)
+            .height(100.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        shape = RoundedCornerShape(32.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
     ) {
         Row(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
