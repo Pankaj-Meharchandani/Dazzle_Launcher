@@ -26,6 +26,8 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -135,11 +137,16 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
                     BottomSheetDefaults.DragHandle()
                 }
             },
-            sheetContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+            sheetContainerColor = MaterialTheme.colorScheme.surface,
             sheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-            containerColor = Color.Transparent
+            containerColor = MaterialTheme.colorScheme.background
         ) { innerPadding ->
-            Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+            ) {
                 HomeScreen(
                     apps = homeApps,
                     onAppClick = { pkg -> viewModel.launchApp(context, pkg) },
@@ -281,12 +288,30 @@ fun AppDrawerContent(
     onAppClick: (String) -> Unit,
     onToggleHome: (AppInfo) -> Unit
 ) {
+    var searchQuery by remember { mutableStateOf("") }
+    val filteredApps = remember(apps, searchQuery) {
+        if (searchQuery.isEmpty()) apps else {
+            apps.filter { it.label.contains(searchQuery, ignoreCase = true) }
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        Text(
-            "All Apps",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(vertical = 8.dp)
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            placeholder = { Text("Search apps...") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            shape = RoundedCornerShape(12.dp),
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                focusedBorderColor = Color.Transparent,
+                unfocusedBorderColor = Color.Transparent
+            )
         )
+        
         LazyVerticalGrid(
             columns = GridCells.Fixed(4),
             modifier = Modifier.fillMaxSize(),
@@ -294,7 +319,7 @@ fun AppDrawerContent(
             verticalArrangement = Arrangement.spacedBy(24.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            items(apps) { app ->
+            items(filteredApps) { app ->
                 val isOnHome = homeApps.any { it.packageName == app.packageName }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     AppItem(app, onAppClick)
@@ -378,8 +403,8 @@ fun AppItem(app: AppInfo, onClick: (String) -> Unit) {
         Box(
             modifier = Modifier
                 .size(60.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                .clip(HexagonShape())
+                .background(MaterialTheme.colorScheme.surfaceVariant)
                 .padding(8.dp)
         ) {
             app.icon?.let {
@@ -397,7 +422,8 @@ fun AppItem(app: AppInfo, onClick: (String) -> Unit) {
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 4.dp),
-            lineHeight = 14.sp
+            lineHeight = 14.sp,
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }
