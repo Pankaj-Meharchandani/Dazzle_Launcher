@@ -24,16 +24,18 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -53,8 +55,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.dazzlelauncher.ui.theme.DazzleLauncherTheme
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
 
 class MainActivity : ComponentActivity() {
     private val viewModel: LauncherViewModel by viewModels()
@@ -196,7 +203,8 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
                         viewModel.openNotifications(context)
                     },
                     onToggleDock = { viewModel.toggleDockApp(it) },
-                    shouldUseDarkText = shouldUseDarkText
+                    shouldUseDarkText = shouldUseDarkText,
+                    viewModel = viewModel
                 )
             }
         }
@@ -215,11 +223,12 @@ fun HomeScreen(
     onSwipeUp: () -> Unit,
     onSwipeDown: () -> Unit,
     onToggleDock: (AppInfo) -> Unit,
-    shouldUseDarkText: Boolean
+    shouldUseDarkText: Boolean,
+    viewModel: LauncherViewModel
 ) {
     val itemsPerPage = 20
-    val pages = if (apps.isEmpty()) 1 else (apps.size + itemsPerPage - 1) / itemsPerPage
-    val pagerState = rememberPagerState(pageCount = { pages })
+    val appPages = if (apps.isEmpty()) 1 else (apps.size + itemsPerPage - 1) / itemsPerPage
+    val pagerState = rememberPagerState(initialPage = 1, pageCount = { appPages + 1 })
 
     Column(
         modifier = Modifier
@@ -263,7 +272,7 @@ fun HomeScreen(
         }
 
         Text(
-            text = "Dazzle",
+            text = if (pagerState.currentPage == 0) "Screen Time" else "Dazzle",
             style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold),
             modifier = Modifier.padding(horizontal = 24.dp),
             color = if (shouldUseDarkText) Color.Black else MaterialTheme.colorScheme.primary
@@ -276,27 +285,32 @@ fun HomeScreen(
             modifier = Modifier.weight(1f).fillMaxWidth(),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)
         ) { page ->
-            val startIdx = page * itemsPerPage
-            val endIdx = minOf(startIdx + itemsPerPage, apps.size)
-            val pageApps = if (apps.isEmpty()) emptyList() else apps.subList(startIdx, endIdx)
-            
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(4),
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                userScrollEnabled = false
-            ) {
-                items(
-                    items = pageApps,
-                    key = { it.key }
-                ) { app ->
-                    AppItem(
-                        app = app, 
-                        onClick = onAppClick,
-                        onLongClick = { onToggleDock(app) },
-                        labelColor = if (shouldUseDarkText) Color.Black else Color.White
-                    )
+            if (page == 0) {
+                ScreentimePage(viewModel = viewModel, shouldUseDarkText = shouldUseDarkText)
+            } else {
+                val appPage = page - 1
+                val startIdx = appPage * itemsPerPage
+                val endIdx = minOf(startIdx + itemsPerPage, apps.size)
+                val pageApps = if (apps.isEmpty()) emptyList() else apps.subList(startIdx, endIdx)
+                
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(4),
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    userScrollEnabled = false
+                ) {
+                    items(
+                        items = pageApps,
+                        key = { it.key }
+                    ) { app ->
+                        AppItem(
+                            app = app, 
+                            onClick = onAppClick,
+                            onLongClick = { onToggleDock(app) },
+                            labelColor = if (shouldUseDarkText) Color.Black else Color.White
+                        )
+                    }
                 }
             }
         }
@@ -306,14 +320,25 @@ fun HomeScreen(
             modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (pages > 1) {
-                Row(
-                    Modifier.height(24.dp).padding(bottom = 8.dp),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    repeat(pages) { iteration ->
-                        val color = if (pagerState.currentPage == iteration) 
-                            MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+            Row(
+                modifier = Modifier.height(24.dp).padding(bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                repeat(pagerState.pageCount) { iteration ->
+                    val color = if (pagerState.currentPage == iteration) 
+                        MaterialTheme.colorScheme.primary else (if (shouldUseDarkText) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.3f))
+                    
+                    if (iteration == 0) {
+                        // Screen Time page indicator (pill shape)
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(color)
+                                .size(width = 12.dp, height = 4.dp)
+                        )
+                    } else {
                         Box(
                             modifier = Modifier
                                 .padding(3.dp)
@@ -323,8 +348,8 @@ fun HomeScreen(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
             }
+            Spacer(modifier = Modifier.height(12.dp))
             
             Dock(apps = dockApps, onAppClick = onAppClick, onLongClick = onToggleDock)
         }
@@ -509,6 +534,169 @@ fun ModeOption(title: String, description: String, selected: Boolean, onClick: (
 }
 
 private val HexShape = HexagonShape()
+
+@Composable
+fun ScreentimePage(viewModel: LauncherViewModel, shouldUseDarkText: Boolean) {
+    val usageStats by viewModel.usageStats.collectAsState()
+    val selectedDate by viewModel.selectedDate.collectAsState()
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    
+    var hasAccess by remember { mutableStateOf(viewModel.hasUsageAccess(context)) }
+    
+    val totalTime = usageStats.sumOf { it.usageTime }
+    val dateFormatter = remember { SimpleDateFormat("EEE, MMM d", Locale.getDefault()) }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                hasAccess = viewModel.hasUsageAccess(context)
+                if (hasAccess) viewModel.fetchUsageStats()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    LaunchedEffect(selectedDate) {
+        if (hasAccess) viewModel.fetchUsageStats()
+    }
+
+    val contentColor = if (shouldUseDarkText) Color.Black else Color.White
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        if (!hasAccess) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        Icons.Default.Lock, 
+                        contentDescription = null, 
+                        modifier = Modifier.size(64.dp),
+                        tint = if (shouldUseDarkText) Color.Black else MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        "Usage access required", 
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = contentColor
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(
+                        onClick = { viewModel.openUsageSettings(context) },
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Grant Permission")
+                    }
+                }
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { viewModel.changeDate(-1) }) {
+                    Icon(Icons.Default.ChevronLeft, contentDescription = "Previous Day", tint = contentColor)
+                }
+                Text(
+                    text = dateFormatter.format(selectedDate.time),
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color = contentColor
+                )
+                IconButton(
+                    onClick = { viewModel.changeDate(1) },
+                    enabled = !isToday(selectedDate)
+                ) {
+                    Icon(
+                        Icons.Default.ChevronRight, 
+                        contentDescription = "Next Day", 
+                        tint = if (isToday(selectedDate)) contentColor.copy(alpha = 0.3f) else contentColor
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (shouldUseDarkText) Color.Black.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.1f)
+                ),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.dp, contentColor.copy(alpha = 0.1f))
+            ) {
+                Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Total Time Today", style = MaterialTheme.typography.labelLarge, color = contentColor.copy(alpha = 0.7f))
+                    Text(
+                        text = formatDuration(totalTime),
+                        style = MaterialTheme.typography.displayMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = contentColor
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(bottom = 24.dp)
+            ) {
+                items(usageStats) { usage ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(modifier = Modifier.size(44.dp)) {
+                            usage.appInfo?.icon?.let {
+                                Image(bitmap = it, contentDescription = null, modifier = Modifier.fillMaxSize())
+                            } ?: Box(modifier = Modifier.fillMaxSize().background(contentColor.copy(alpha = 0.1f), CircleShape))
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                usage.appInfo?.label ?: usage.packageName.split(".").last(), 
+                                style = MaterialTheme.typography.titleMedium,
+                                color = contentColor
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            LinearProgressIndicator(
+                                progress = { if (totalTime > 0) usage.usageTime.toFloat() / totalTime else 0f },
+                                modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                                color = if (shouldUseDarkText) Color.Black else MaterialTheme.colorScheme.primary,
+                                trackColor = contentColor.copy(alpha = 0.1f)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            formatDuration(usage.usageTime), 
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = contentColor
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+fun isToday(calendar: Calendar): Boolean {
+    val today = Calendar.getInstance()
+    return calendar.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
+           calendar.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR)
+}
+
+fun formatDuration(ms: Long): String {
+    val totalSeconds = ms / 1000
+    val minutes = (totalSeconds / 60) % 60
+    val hours = totalSeconds / 3600
+    return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
+}
 
 @Composable
 fun AppItem(

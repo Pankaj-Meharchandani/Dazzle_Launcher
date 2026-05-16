@@ -1,8 +1,10 @@
 package com.example.dazzlelauncher
 
+import android.app.AppOpsManager
 import android.app.Application
 import android.app.WallpaperColors
 import android.app.WallpaperManager
+import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.LauncherApps
@@ -11,6 +13,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
+import android.provider.Settings
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.drawable.toBitmap
@@ -18,10 +21,17 @@ import androidx.lifecycle.AndroidViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.Calendar
 
 enum class LauncherMode {
     HOME_ONLY, HOME_AND_DRAWER
 }
+
+data class AppUsageInfo(
+    val appInfo: AppInfo?,
+    val packageName: String,
+    val usageTime: Long
+)
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
     private val packageManager = application.packageManager
@@ -50,6 +60,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     private val _shouldUseDarkText = MutableStateFlow(false)
     val shouldUseDarkText: StateFlow<Boolean> = _shouldUseDarkText.asStateFlow()
+
+    private val _usageStats = MutableStateFlow<List<AppUsageInfo>>(emptyList())
+    val usageStats: StateFlow<List<AppUsageInfo>> = _usageStats.asStateFlow()
+
+    private val _selectedDate = MutableStateFlow(Calendar.getInstance())
+    val selectedDate: StateFlow<Calendar> = _selectedDate.asStateFlow()
 
     private val wallpaperColorsListener = WallpaperManager.OnColorsChangedListener { colors, _ ->
         updateWallpaperHints(colors)
@@ -203,6 +219,66 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         intent.addCategory(Intent.CATEGORY_HOME)
         val resolveInfo = packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
         _isDefault.value = resolveInfo?.activityInfo?.packageName == context.packageName
+    }
+
+    fun hasUsageAccess(context: Context): Boolean {
+        val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+        val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            appOps.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName)
+        } else {
+            @Suppress("DEPRECATION")
+            appOps.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName)
+        }
+        return mode == AppOpsManager.MODE_ALLOWED
+    }
+
+    fun openUsageSettings(context: Context) {
+        context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+    }
+
+    fun fetchUsageStats() {
+        val context = getApplication<Application>()
+        if (!hasUsageAccess(context)) return
+
+        val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        val calendar = _selectedDate.value.clone() as Calendar
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        val startTime = calendar.timeInMillis
+        
+        calendar.add(Calendar.DAY_OF_YEAR, 1)
+        val endTime = minOf(calendar.timeInMillis, System.currentTimeMillis())
+
+        val stats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startTime, endTime)
+        
+        if (stats != null) {
+            val usageMap = stats.groupBy { it.packageName }
+                .mapValues { entry -> entry.value.sumOf { it.totalTimeInForeground } }
+                .filter { it.value > 0 }
+            
+            val appUsageList = usageMap.map { (pkg, time) ->
+                AppUsageInfo(
+                    appInfo = _allApps.value.find { it.packageName == pkg },
+                    packageName = pkg,
+                    usageTime = time
+                )
+            }.sortedByDescending { it.usageTime }
+            
+            _usageStats.value = appUsageList
+        }
+    }
+
+    fun changeDate(days: Int) {
+        val newDate = _selectedDate.value.clone() as Calendar
+        newDate.add(Calendar.DAY_OF_YEAR, days)
+        // Don't allow future dates
+        if (newDate.timeInMillis <= System.currentTimeMillis() || 
+            newDate.get(Calendar.DAY_OF_YEAR) == Calendar.getInstance().get(Calendar.DAY_OF_YEAR)) {
+            _selectedDate.value = newDate
+            fetchUsageStats()
+        }
     }
 
     fun launchApp(context: Context, packageName: String) {
