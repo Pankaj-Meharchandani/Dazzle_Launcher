@@ -1,16 +1,20 @@
 package com.example.dazzlelauncher
 
+import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -36,6 +40,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -58,6 +63,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -147,16 +153,20 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
         scope.launch { scaffoldState.bottomSheetState.partialExpand() }
     }
 
+    val widgetType by viewModel.widgetType.collectAsState()
+
     if (showSettings) {
         SettingsScreen(
             currentMode = mode,
             useWallpaper = useWallpaper,
             blurDrawer = blurDrawer,
             is24Hour = is24Hour,
+            widgetType = widgetType,
             onModeChange = { viewModel.setMode(it) },
             onWallpaperToggle = { viewModel.setUseWallpaper(it) },
             onBlurDrawerToggle = { viewModel.setBlurDrawer(it) },
             onTimeFormatToggle = { viewModel.setIs24Hour(it) },
+            onWidgetTypeChange = { viewModel.setWidgetType(it) },
             onClose = { showSettings = false }
         )
     } else {
@@ -261,6 +271,8 @@ fun HomeScreen(
     LaunchedEffect(Unit) {
         while (true) {
             currentTime = Calendar.getInstance()
+            viewModel.fetchNextAlarm()
+            viewModel.fetchCalendarEvent()
             val seconds = Calendar.getInstance().get(Calendar.SECOND)
             kotlinx.coroutines.delay((60 - seconds) * 1000L)
         }
@@ -270,6 +282,10 @@ fun HomeScreen(
     val totalTimeToday = remember(usageStats) { 
         usageStats.sumOf { it.usageTime } 
     }
+    val widgetType by viewModel.widgetType.collectAsState()
+    val batteryInfo by viewModel.batteryInfo.collectAsState()
+    val nextAlarm by viewModel.nextAlarm.collectAsState()
+    val calendarEvent by viewModel.calendarEvent.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.fetchUsageStats()
@@ -373,7 +389,12 @@ fun HomeScreen(
                             color = if (shouldUseDarkText) Color.Black else Color.White
                         )
                         Text(
-                            text = "${formatDuration(totalTimeToday)} Today",
+                            text = when(widgetType) {
+                                WidgetType.SCREEN_TIME -> "${formatDuration(totalTimeToday)} Today"
+                                WidgetType.BATTERY_TEMP -> batteryInfo
+                                WidgetType.NEXT_ALARM -> nextAlarm
+                                WidgetType.CALENDAR_EVENT -> calendarEvent
+                            },
                             style = MaterialTheme.typography.titleMedium,
                             color = if (shouldUseDarkText) Color.Black.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.7f)
                         )
@@ -622,10 +643,12 @@ fun SettingsScreen(
     useWallpaper: Boolean,
     blurDrawer: Boolean,
     is24Hour: Boolean,
+    widgetType: WidgetType,
     onModeChange: (LauncherMode) -> Unit,
     onWallpaperToggle: (Boolean) -> Unit,
     onBlurDrawerToggle: (Boolean) -> Unit,
     onTimeFormatToggle: (Boolean) -> Unit,
+    onWidgetTypeChange: (WidgetType) -> Unit,
     onClose: () -> Unit
 ) {
     BackHandler(onBack = onClose)
@@ -689,6 +712,40 @@ fun SettingsScreen(
                     Text("Switch between 12h and 24h clock", style = MaterialTheme.typography.bodySmall)
                 }
                 Switch(checked = is24Hour, onCheckedChange = onTimeFormatToggle)
+            }
+
+            var showWidgetSelector by remember { mutableStateOf(false) }
+            
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+                    .clickable { showWidgetSelector = true },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("Widget Content", style = MaterialTheme.typography.titleMedium)
+                    val widgetLabel = when(widgetType) {
+                        WidgetType.SCREEN_TIME -> "Screen Time"
+                        WidgetType.NEXT_ALARM -> "Next Alarm"
+                        WidgetType.BATTERY_TEMP -> "Battery & Temperature"
+                        WidgetType.CALENDAR_EVENT -> "Calendar Event"
+                    }
+                    Text(widgetLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                }
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+            }
+
+            if (showWidgetSelector) {
+                WidgetSelectorDialog(
+                    selectedType = widgetType,
+                    onTypeSelected = { 
+                        onWidgetTypeChange(it)
+                        showWidgetSelector = false 
+                    },
+                    onDismiss = { showWidgetSelector = false }
+                )
             }
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -914,6 +971,65 @@ fun formatDuration(ms: Long): String {
     val minutes = (totalSeconds / 60) % 60
     val hours = totalSeconds / 3600
     return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
+}
+
+@Composable
+fun WidgetSelectorDialog(
+    selectedType: WidgetType,
+    onTypeSelected: (WidgetType) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val calendarPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            onTypeSelected(WidgetType.CALENDAR_EVENT)
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Select Widget") },
+        text = {
+            Column {
+                WidgetOption("Screen Time", selectedType == WidgetType.SCREEN_TIME) {
+                    onTypeSelected(WidgetType.SCREEN_TIME)
+                }
+                WidgetOption("Next Alarm", selectedType == WidgetType.NEXT_ALARM) {
+                    onTypeSelected(WidgetType.NEXT_ALARM)
+                }
+                WidgetOption("Battery & Temperature", selectedType == WidgetType.BATTERY_TEMP) {
+                    onTypeSelected(WidgetType.BATTERY_TEMP)
+                }
+                WidgetOption("Calendar Event", selectedType == WidgetType.CALENDAR_EVENT) {
+                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED) {
+                        onTypeSelected(WidgetType.CALENDAR_EVENT)
+                    } else {
+                        calendarPermissionLauncher.launch(Manifest.permission.READ_CALENDAR)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+fun WidgetOption(label: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(vertical = 12.dp, horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(label, style = MaterialTheme.typography.bodyLarge)
+    }
 }
 
 @Composable

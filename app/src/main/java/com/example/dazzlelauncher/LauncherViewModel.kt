@@ -1,32 +1,45 @@
 package com.example.dazzlelauncher
 
+import android.Manifest
+import android.app.AlarmManager
 import android.app.AppOpsManager
 import android.app.Application
 import android.app.WallpaperColors
 import android.app.WallpaperManager
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
+import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
+import android.provider.CalendarContract
 import android.provider.Settings
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.AndroidViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Locale
 import java.util.TimeZone
 
 enum class LauncherMode {
     HOME_ONLY, HOME_AND_DRAWER
+}
+
+enum class WidgetType {
+    SCREEN_TIME, NEXT_ALARM, BATTERY_TEMP, CALENDAR_EVENT
 }
 
 data class AppUsageInfo(
@@ -69,6 +82,32 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private val _shouldUseDarkText = MutableStateFlow(false)
     val shouldUseDarkText: StateFlow<Boolean> = _shouldUseDarkText.asStateFlow()
 
+    private val _widgetType = MutableStateFlow(
+        WidgetType.valueOf(prefs?.getString("widget_type", WidgetType.SCREEN_TIME.name) ?: WidgetType.SCREEN_TIME.name)
+    )
+    val widgetType: StateFlow<WidgetType> = _widgetType.asStateFlow()
+
+    private val _batteryInfo = MutableStateFlow("Loading...")
+    val batteryInfo: StateFlow<String> = _batteryInfo.asStateFlow()
+
+    private val _nextAlarm = MutableStateFlow("No alarm")
+    val nextAlarm: StateFlow<String> = _nextAlarm.asStateFlow()
+
+    private val _calendarEvent = MutableStateFlow("No events")
+    val calendarEvent: StateFlow<String> = _calendarEvent.asStateFlow()
+
+    private val batteryReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            intent?.let {
+                val level = it.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+                val scale = it.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+                val temp = it.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1) / 10.0
+                val batteryPct = if (scale > 0) (level * 100 / scale) else 0
+                _batteryInfo.value = "$batteryPct% • $temp°C"
+            }
+        }
+    }
+
     private val _usageStats = MutableStateFlow<List<AppUsageInfo>>(emptyList())
     val usageStats: StateFlow<List<AppUsageInfo>> = _usageStats.asStateFlow()
 
@@ -82,6 +121,78 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     init {
         loadApps()
         initWallpaperColors()
+        getApplication<Application>().registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        fetchNextAlarm()
+        fetchCalendarEvent()
+    }
+
+    fun setWidgetType(type: WidgetType) {
+        _widgetType.value = type
+        prefs?.edit()?.putString("widget_type", type.name)?.apply()
+        when(type) {
+            WidgetType.NEXT_ALARM -> fetchNextAlarm()
+            WidgetType.CALENDAR_EVENT -> fetchCalendarEvent()
+            else -> {}
+        }
+    }
+
+    fun fetchNextAlarm() {
+        val alarmManager = getApplication<Application>().getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val nextAlarm = alarmManager.nextAlarmClock
+        if (nextAlarm != null) {
+            val calendar = Calendar.getInstance().apply { timeInMillis = nextAlarm.triggerTime }
+            val formatter = SimpleDateFormat(if (_is24Hour.value) "HH:mm" else "h:mm a", Locale.getDefault())
+            _nextAlarm.value = formatter.format(calendar.time)
+        } else {
+            _nextAlarm.value = "No alarm"
+        }
+    }
+
+    fun fetchCalendarEvent() {
+        if (ContextCompat.checkSelfPermission(getApplication(), Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
+            _calendarEvent.value = "No Permission"
+            return
+        }
+
+        val now = Calendar.getInstance()
+        val startOfDay = now.clone() as Calendar
+        startOfDay.set(Calendar.HOUR_OF_DAY, 0)
+        startOfDay.set(Calendar.MINUTE, 0)
+        startOfDay.set(Calendar.SECOND, 0)
+        
+        val endOfDay = now.clone() as Calendar
+        endOfDay.set(Calendar.HOUR_OF_DAY, 23)
+        endOfDay.set(Calendar.MINUTE, 59)
+        endOfDay.set(Calendar.SECOND, 59)
+
+        val projection = arrayOf(
+            CalendarContract.Events.TITLE,
+            CalendarContract.Events.DTSTART
+        )
+
+        val selection = "${CalendarContract.Events.DTSTART} >= ? AND ${CalendarContract.Events.DTSTART} <= ? AND ${CalendarContract.Events.DELETED} != 1"
+        val selectionArgs = arrayOf(startOfDay.timeInMillis.toString(), endOfDay.timeInMillis.toString())
+        val sortOrder = "${CalendarContract.Events.DTSTART} ASC"
+
+        try {
+            getApplication<Application>().contentResolver.query(
+                CalendarContract.Events.CONTENT_URI,
+                projection,
+                selection,
+                selectionArgs,
+                sortOrder
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val titleIdx = cursor.getColumnIndex(CalendarContract.Events.TITLE)
+                    val title = cursor.getString(titleIdx)
+                    _calendarEvent.value = if (title.length > 20) title.take(20) + "..." else title
+                } else {
+                    _calendarEvent.value = "No events today"
+                }
+            }
+        } catch (e: Exception) {
+            _calendarEvent.value = "Error loading"
+        }
     }
 
     private fun initWallpaperColors() {
@@ -108,6 +219,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     override fun onCleared() {
         super.onCleared()
         wallpaperManager.removeOnColorsChangedListener(wallpaperColorsListener)
+        getApplication<Application>().unregisterReceiver(batteryReceiver)
     }
 
     fun loadApps() {
