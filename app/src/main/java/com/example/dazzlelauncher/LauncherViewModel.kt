@@ -32,6 +32,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     )
     val mode: StateFlow<LauncherMode> = _mode.asStateFlow()
 
+    private val _useWallpaper = MutableStateFlow(prefs.getBoolean("use_wallpaper", true))
+    val useWallpaper: StateFlow<Boolean> = _useWallpaper.asStateFlow()
+
     init {
         loadApps()
     }
@@ -77,6 +80,11 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         _mode.value = mode
         prefs.edit().putString("mode", mode.name).apply()
         updateHomeApps(_allApps.value)
+    }
+
+    fun setUseWallpaper(use: Boolean) {
+        _useWallpaper.value = use
+        prefs.edit().putBoolean("use_wallpaper", use).apply()
     }
 
 

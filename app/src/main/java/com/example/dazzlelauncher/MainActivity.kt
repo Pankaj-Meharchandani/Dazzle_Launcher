@@ -18,6 +18,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -34,12 +35,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -92,6 +97,7 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
     val homeApps by viewModel.homeApps.collectAsState()
     val allApps by viewModel.allApps.collectAsState()
     val mode by viewModel.mode.collectAsState()
+    val useWallpaper by viewModel.useWallpaper.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     
@@ -116,7 +122,9 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
     if (showSettings) {
         SettingsScreen(
             currentMode = mode,
+            useWallpaper = useWallpaper,
             onModeChange = { viewModel.setMode(it) },
+            onWallpaperToggle = { viewModel.setUseWallpaper(it) },
             onClose = { showSettings = false }
         )
     } else {
@@ -144,15 +152,15 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
                     BottomSheetDefaults.DragHandle()
                 }
             },
-            sheetContainerColor = MaterialTheme.colorScheme.surface,
+            sheetContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
             sheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-            containerColor = MaterialTheme.colorScheme.background
+            containerColor = Color.Transparent
         ) { innerPadding ->
             Box(
                 modifier = Modifier
                     .padding(innerPadding)
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
+                    .background(if (useWallpaper) Color.Transparent else MaterialTheme.colorScheme.background)
             ) {
                 HomeScreen(
                     apps = homeApps,
@@ -361,7 +369,9 @@ fun AppDrawerContent(
 @Composable
 fun SettingsScreen(
     currentMode: LauncherMode,
+    useWallpaper: Boolean,
     onModeChange: (LauncherMode) -> Unit,
+    onWallpaperToggle: (Boolean) -> Unit,
     onClose: () -> Unit
 ) {
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -369,6 +379,21 @@ fun SettingsScreen(
             Text("Settings", style = MaterialTheme.typography.displaySmall)
             Spacer(modifier = Modifier.height(32.dp))
             
+            Text("Appearance", style = MaterialTheme.typography.titleLarge)
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("Show System Wallpaper", style = MaterialTheme.typography.titleMedium)
+                    Text("Use your home screen background", style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(checked = useWallpaper, onCheckedChange = onWallpaperToggle)
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
             Text("Launcher Mode", style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(16.dp))
             
@@ -449,7 +474,14 @@ fun AppItem(app: AppInfo, onClick: (String) -> Unit) {
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 4.dp),
             lineHeight = 14.sp,
-            color = MaterialTheme.colorScheme.onSurface
+            color = if (isSystemInDarkTheme()) Color.White else MaterialTheme.colorScheme.onSurface,
+            style = TextStyle(
+                shadow = Shadow(
+                    color = Color.Black.copy(alpha = 0.5f),
+                    offset = Offset(1f, 1f),
+                    blurRadius = 3f
+                )
+            )
         )
     }
 }
