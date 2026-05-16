@@ -443,7 +443,7 @@ fun HomeScreen(
                                 imageVector = Icons.Default.Settings,
                                 contentDescription = "Launcher Settings",
                                 modifier = Modifier.size(32.dp),
-                                tint = if (shouldUseDarkText) Color.Black else Color.White
+                                tint = if (shouldUseDarkText || !isSystemInDarkTheme()) Color.Black else Color.White
                             )
                         }
                         Text(
