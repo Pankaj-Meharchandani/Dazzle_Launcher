@@ -487,34 +487,6 @@ fun HomeScreen(
                 ) {
                     Column(
                         modifier = Modifier
-                            .clickable { onOpenSettings() }
-                            .padding(4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(60.dp)
-                                .clip(HexShape)
-                                .background(MaterialTheme.colorScheme.surfaceVariant),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = "Launcher Settings",
-                                modifier = Modifier.size(32.dp),
-                                tint = if (shouldUseDarkText || !isSystemInDarkTheme()) Color.Black else Color.White
-                            )
-                        }
-                        Text(
-                            text = "Settings",
-                            fontSize = 11.sp,
-                            color = if (shouldUseDarkText) Color.Black else Color.White,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    }
-
-                    Column(
-                        modifier = Modifier
                             .clickable {
                                 val packageName = "com.example.waller"
                                 val intent = context.packageManager.getLaunchIntentForPackage(packageName)
@@ -547,6 +519,34 @@ fun HomeScreen(
                         }
                         Text(
                             text = "Wallpaper",
+                            fontSize = 11.sp,
+                            color = if (shouldUseDarkText) Color.Black else Color.White,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .clickable { onOpenSettings() }
+                            .padding(4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(60.dp)
+                                .clip(HexShape)
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Launcher Settings",
+                                modifier = Modifier.size(32.dp),
+                                tint = if (shouldUseDarkText || !isSystemInDarkTheme()) Color.Black else Color.White
+                            )
+                        }
+                        Text(
+                            text = "Settings",
                             fontSize = 11.sp,
                             color = if (shouldUseDarkText) Color.Black else Color.White,
                             modifier = Modifier.padding(top = 4.dp)
