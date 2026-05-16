@@ -45,6 +45,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private val _useWallpaper = MutableStateFlow(prefs.getBoolean("use_wallpaper", true))
     val useWallpaper: StateFlow<Boolean> = _useWallpaper.asStateFlow()
 
+    private val _isDefault = MutableStateFlow(true)
+    val isDefault: StateFlow<Boolean> = _isDefault.asStateFlow()
+
     private val _shouldUseDarkText = MutableStateFlow(false)
     val shouldUseDarkText: StateFlow<Boolean> = _shouldUseDarkText.asStateFlow()
 
@@ -195,18 +198,18 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         prefs.edit().putStringSet("home_apps", currentHome.map { it.packageName }.toSet()).apply()
     }
     
+    fun checkDefaultLauncher(context: Context) {
+        val intent = Intent(Intent.ACTION_MAIN)
+        intent.addCategory(Intent.CATEGORY_HOME)
+        val resolveInfo = packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+        _isDefault.value = resolveInfo?.activityInfo?.packageName == context.packageName
+    }
+
     fun launchApp(context: Context, packageName: String) {
         val intent = packageManager.getLaunchIntentForPackage(packageName)
         if (intent != null) {
             context.startActivity(intent)
         }
-    }
-
-    fun isDefaultLauncher(context: Context): Boolean {
-        val intent = Intent(Intent.ACTION_MAIN)
-        intent.addCategory(Intent.CATEGORY_HOME)
-        val resolveInfo = packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
-        return resolveInfo?.activityInfo?.packageName == context.packageName
     }
 
     fun openNotifications(context: Context) {

@@ -43,7 +43,6 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -89,6 +88,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        viewModel.checkDefaultLauncher(this)
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(unlockReceiver)
@@ -103,6 +107,7 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
     val allApps by viewModel.allApps.collectAsState()
     val mode by viewModel.mode.collectAsState()
     val useWallpaper by viewModel.useWallpaper.collectAsState()
+    val isDefault by viewModel.isDefault.collectAsState()
     val shouldUseDarkText by viewModel.shouldUseDarkText.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -122,11 +127,6 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
     )
 
     var showSettings by remember { mutableStateOf(false) }
-    var isDefault by remember { mutableStateOf(true) }
-
-    LaunchedEffect(Unit) {
-        isDefault = viewModel.isDefaultLauncher(context)
-    }
 
     BackHandler(enabled = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded) {
         scope.launch { scaffoldState.bottomSheetState.partialExpand() }
