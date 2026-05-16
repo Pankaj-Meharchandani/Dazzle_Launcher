@@ -436,7 +436,7 @@ fun HomeScreen(
                             modifier = Modifier
                                 .size(60.dp)
                                 .clip(HexShape)
-                                .background(if (shouldUseDarkText) Color.Black.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant),
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(

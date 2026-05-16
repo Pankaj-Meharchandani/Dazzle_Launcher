@@ -113,7 +113,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun loadApps() {
         val launcherApps = getApplication<Application>().getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
         val user = Process.myUserHandle()
-        val apps = launcherApps.getActivityList(null, user).map { info ->
+        val packageName = getApplication<Application>().packageName
+        val apps = launcherApps.getActivityList(null, user).mapNotNull { info ->
+            if (info.applicationInfo.packageName == packageName) return@mapNotNull null
+
             val iconDrawable = info.getIcon(0)
             // Limit icon size for better performance and memory usage
             val bitmap = iconDrawable?.toBitmap(width = 200, height = 200)
