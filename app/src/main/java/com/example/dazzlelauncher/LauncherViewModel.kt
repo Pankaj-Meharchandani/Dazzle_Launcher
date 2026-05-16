@@ -4,6 +4,7 @@ import android.app.AppOpsManager
 import android.app.Application
 import android.app.WallpaperColors
 import android.app.WallpaperManager
+import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.Calendar
+import java.util.TimeZone
 
 enum class LauncherMode {
     HOME_ONLY, HOME_AND_DRAWER
@@ -241,6 +243,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         if (!hasUsageAccess(context)) return
 
         val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        
         val calendar = _selectedDate.value.clone() as Calendar
         calendar.set(Calendar.HOUR_OF_DAY, 0)
         calendar.set(Calendar.MINUTE, 0)
@@ -248,26 +251,66 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         calendar.set(Calendar.MILLISECOND, 0)
         val startTime = calendar.timeInMillis
         
-        calendar.add(Calendar.DAY_OF_YEAR, 1)
-        val endTime = minOf(calendar.timeInMillis, System.currentTimeMillis())
-
-        val stats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startTime, endTime)
-        
-        if (stats != null) {
-            val usageMap = stats.groupBy { it.packageName }
-                .mapValues { entry -> entry.value.sumOf { it.totalTimeInForeground } }
-                .filter { it.value > 0 }
-            
-            val appUsageList = usageMap.map { (pkg, time) ->
-                AppUsageInfo(
-                    appInfo = _allApps.value.find { it.packageName == pkg },
-                    packageName = pkg,
-                    usageTime = time
-                )
-            }.sortedByDescending { it.usageTime }
-            
-            _usageStats.value = appUsageList
+        val endTime = if (isToday(_selectedDate.value)) {
+            System.currentTimeMillis()
+        } else {
+            val endCal = calendar.clone() as Calendar
+            endCal.add(Calendar.DAY_OF_YEAR, 1)
+            endCal.timeInMillis
         }
+
+        val events = usageStatsManager.queryEvents(startTime, endTime)
+        val stats = mutableMapOf<String, Long>()
+        val startTimes = mutableMapOf<String, Long>()
+
+        while (events.hasNextEvent()) {
+            val event = UsageEvents.Event()
+            events.getNextEvent(event)
+            
+            when (event.eventType) {
+                UsageEvents.Event.ACTIVITY_RESUMED -> {
+                    startTimes[event.packageName] = event.timeStamp
+                }
+                UsageEvents.Event.ACTIVITY_PAUSED, UsageEvents.Event.ACTIVITY_STOPPED -> {
+                    val startTimeForPkg = startTimes[event.packageName]
+                    if (startTimeForPkg != null) {
+                        val duration = event.timeStamp - startTimeForPkg
+                        if (duration > 0) {
+                            stats[event.packageName] = (stats[event.packageName] ?: 0L) + duration
+                        }
+                        startTimes.remove(event.packageName)
+                    }
+                }
+            }
+        }
+
+        // Handle apps still in foreground
+        if (isToday(_selectedDate.value)) {
+            val now = System.currentTimeMillis()
+            for ((pkg, time) in startTimes) {
+                val duration = now - time
+                if (duration > 0) {
+                    stats[pkg] = (stats[pkg] ?: 0L) + duration
+                }
+            }
+        }
+
+        val appUsageList = stats.map { (pkg, time) ->
+            AppUsageInfo(
+                appInfo = _allApps.value.find { it.packageName == pkg },
+                packageName = pkg,
+                usageTime = time
+            )
+        }.filter { it.usageTime > 0 && it.packageName != context.packageName }
+        .sortedByDescending { it.usageTime }
+        
+        _usageStats.value = appUsageList
+    }
+
+    private fun isToday(calendar: Calendar): Boolean {
+        val today = Calendar.getInstance()
+        return calendar.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
+               calendar.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR)
     }
 
     fun changeDate(days: Int) {

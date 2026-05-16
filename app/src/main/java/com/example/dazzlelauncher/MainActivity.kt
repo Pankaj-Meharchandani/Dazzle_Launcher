@@ -41,6 +41,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -204,7 +205,8 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
                     },
                     onToggleDock = { viewModel.toggleDockApp(it) },
                     shouldUseDarkText = shouldUseDarkText,
-                    viewModel = viewModel
+                    viewModel = viewModel,
+                    useWallpaper = useWallpaper
                 )
             }
         }
@@ -224,134 +226,155 @@ fun HomeScreen(
     onSwipeDown: () -> Unit,
     onToggleDock: (AppInfo) -> Unit,
     shouldUseDarkText: Boolean,
-    viewModel: LauncherViewModel
+    viewModel: LauncherViewModel,
+    useWallpaper: Boolean
 ) {
-    val itemsPerPage = 20
-    val appPages = if (apps.isEmpty()) 1 else (apps.size + itemsPerPage - 1) / itemsPerPage
-    val pagerState = rememberPagerState(initialPage = 1, pageCount = { appPages + 1 })
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .pointerInput(Unit) {
-                var totalDrag = 0f
-                detectVerticalDragGestures(
-                    onVerticalDrag = { change, dragAmount ->
-                        change.consume()
-                        totalDrag += dragAmount
-                    },
-                    onDragEnd = {
-                        if (totalDrag < -100) onSwipeUp()
-                        if (totalDrag > 100) onSwipeDown()
-                        totalDrag = 0f
-                    }
-                )
-            }
-            .combinedClickable(
-                onClick = {},
-                onLongClick = onLongClick
-            )
-            .padding(top = 80.dp)
-    ) {
-        if (!isDefault) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .clickable { onSetDefault() },
-                color = MaterialTheme.colorScheme.primaryContainer,
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    "Set Dazzle as your default launcher",
-                    modifier = Modifier.padding(12.dp),
-                    style = MaterialTheme.typography.labelLarge,
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
-
-        Text(
-            text = if (pagerState.currentPage == 0) "Screen Time" else "Dazzle",
-            style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold),
-            modifier = Modifier.padding(horizontal = 24.dp),
-            color = if (shouldUseDarkText) Color.Black else MaterialTheme.colorScheme.primary
-        )
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val availableHeight = maxHeight
+        // Calculate rows: Title area (~120dp) + Dock area (~150dp) are outside pager weight
+        // But weight(1f) takes the remaining. Let's estimate items based on height.
+        // On a 800dp screen, pager might get 500dp. 5 rows * 100dp = 500dp.
+        // We'll use a safer approach: calculate rows based on pager's actual size.
         
-        Spacer(modifier = Modifier.height(48.dp))
-        
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)
-        ) { page ->
-            if (page == 0) {
-                ScreentimePage(viewModel = viewModel, shouldUseDarkText = shouldUseDarkText)
-            } else {
-                val appPage = page - 1
-                val startIdx = appPage * itemsPerPage
-                val endIdx = minOf(startIdx + itemsPerPage, apps.size)
-                val pageApps = if (apps.isEmpty()) emptyList() else apps.subList(startIdx, endIdx)
-                
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(4),
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    userScrollEnabled = false
-                ) {
-                    items(
-                        items = pageApps,
-                        key = { it.key }
-                    ) { app ->
-                        AppItem(
-                            app = app, 
-                            onClick = onAppClick,
-                            onLongClick = { onToggleDock(app) },
-                            labelColor = if (shouldUseDarkText) Color.Black else Color.White
-                        )
-                    }
-                }
-            }
-        }
-
-        // Page Indicator and Dock area
         Column(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    var totalDrag = 0f
+                    detectVerticalDragGestures(
+                        onVerticalDrag = { change, dragAmount ->
+                            change.consume()
+                            totalDrag += dragAmount
+                        },
+                        onDragEnd = {
+                            if (totalDrag < -100) onSwipeUp()
+                            if (totalDrag > 100) onSwipeDown()
+                            totalDrag = 0f
+                        }
+                    )
+                }
+                .combinedClickable(
+                    onClick = {},
+                    onLongClick = onLongClick
+                )
+                .padding(top = 80.dp)
         ) {
-            Row(
-                modifier = Modifier.height(24.dp).padding(bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                repeat(pagerState.pageCount) { iteration ->
-                    val color = if (pagerState.currentPage == iteration) 
-                        MaterialTheme.colorScheme.primary else (if (shouldUseDarkText) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.3f))
+            if (!isDefault) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clickable { onSetDefault() },
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        "Set Dazzle as your default launcher",
+                        modifier = Modifier.padding(12.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                    val pagerHeight = maxHeight
+                    // Each row is ~105dp. Let's calculate how many fit.
+                    val rows = (pagerHeight.value / 105).toInt().coerceIn(1, 6)
+                    val itemsPerPage = rows * 4
+                    val appPages = if (apps.isEmpty()) 1 else (apps.size + itemsPerPage - 1) / itemsPerPage
+                    val pagerState = rememberPagerState(initialPage = 1, pageCount = { appPages + 1 })
+
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        val titleText = if (pagerState.currentPage == 0) "Screen Time" else "Dazzle"
+                        Text(
+                            text = titleText,
+                            style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold),
+                            modifier = Modifier.padding(horizontal = 24.dp),
+                            color = if (shouldUseDarkText) Color.Black else MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier.weight(1f).fillMaxWidth().clipToBounds(),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                            pageSpacing = 16.dp,
+                            beyondViewportPageCount = 1
+                        ) { page ->
+                            if (page == 0) {
+                                ScreentimePage(viewModel = viewModel, shouldUseDarkText = shouldUseDarkText, useWallpaper = useWallpaper)
+                            } else {
+                                val appPage = page - 1
+                                val startIdx = appPage * itemsPerPage
+                                val endIdx = minOf(startIdx + itemsPerPage, apps.size)
+                                val pageApps = if (apps.isEmpty()) emptyList() else apps.subList(startIdx, endIdx)
+                                
+                                LazyVerticalGrid(
+                                    columns = GridCells.Fixed(4),
+                                    modifier = Modifier.fillMaxSize(),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                    userScrollEnabled = false,
+                                    contentPadding = PaddingValues(bottom = 16.dp)
+                                ) {
+                                    items(
+                                        items = pageApps,
+                                        key = { it.key }
+                                    ) { app ->
+                                        AppItem(
+                                            app = app, 
+                                            onClick = onAppClick,
+                                            onLongClick = { onToggleDock(app) },
+                                            labelColor = if (shouldUseDarkText) Color.Black else Color.White
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                     
-                    if (iteration == 0) {
-                        // Screen Time page indicator (pill shape)
-                        Box(
-                            modifier = Modifier
-                                .padding(horizontal = 4.dp)
-                                .clip(RoundedCornerShape(2.dp))
-                                .background(color)
-                                .size(width = 12.dp, height = 4.dp)
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .padding(3.dp)
-                                .clip(CircleShape)
-                                .background(color)
-                                .size(6.dp)
-                        )
+                    // Move indicator inside BoxWithConstraints to use pagerState
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                         Row(
+                            modifier = Modifier.height(24.dp).padding(bottom = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            repeat(pagerState.pageCount) { iteration ->
+                                val color = if (pagerState.currentPage == iteration) 
+                                    MaterialTheme.colorScheme.primary else (if (shouldUseDarkText) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.3f))
+                                
+                                if (iteration == 0) {
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(horizontal = 4.dp)
+                                            .clip(RoundedCornerShape(2.dp))
+                                            .background(color)
+                                            .size(width = 12.dp, height = 4.dp)
+                                    )
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(3.dp)
+                                            .clip(CircleShape)
+                                            .background(color)
+                                            .size(6.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(12.dp))
             
+            Spacer(modifier = Modifier.height(16.dp))
             Dock(apps = dockApps, onAppClick = onAppClick, onLongClick = onToggleDock)
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -536,7 +559,7 @@ fun ModeOption(title: String, description: String, selected: Boolean, onClick: (
 private val HexShape = HexagonShape()
 
 @Composable
-fun ScreentimePage(viewModel: LauncherViewModel, shouldUseDarkText: Boolean) {
+fun ScreentimePage(viewModel: LauncherViewModel, shouldUseDarkText: Boolean, useWallpaper: Boolean) {
     val usageStats by viewModel.usageStats.collectAsState()
     val selectedDate by viewModel.selectedDate.collectAsState()
     val context = LocalContext.current
@@ -544,7 +567,10 @@ fun ScreentimePage(viewModel: LauncherViewModel, shouldUseDarkText: Boolean) {
     
     var hasAccess by remember { mutableStateOf(viewModel.hasUsageAccess(context)) }
     
-    val totalTime = usageStats.sumOf { it.usageTime }
+    val filteredStats = remember(usageStats) {
+        usageStats.filter { it.usageTime > 0 && it.packageName != context.packageName }
+    }
+    val totalTime = filteredStats.sumOf { it.usageTime }
     val dateFormatter = remember { SimpleDateFormat("EEE, MMM d", Locale.getDefault()) }
 
     DisposableEffect(lifecycleOwner) {
@@ -564,120 +590,125 @@ fun ScreentimePage(viewModel: LauncherViewModel, shouldUseDarkText: Boolean) {
 
     val contentColor = if (shouldUseDarkText) Color.Black else Color.White
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        if (!hasAccess) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Default.Lock, 
-                        contentDescription = null, 
-                        modifier = Modifier.size(64.dp),
-                        tint = if (shouldUseDarkText) Color.Black else MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        "Usage access required", 
-                        textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = contentColor
-                    )
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Button(
-                        onClick = { viewModel.openUsageSettings(context) },
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("Grant Permission")
-                    }
-                }
-            }
-        } else {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = { viewModel.changeDate(-1) }) {
-                    Icon(Icons.Default.ChevronLeft, contentDescription = "Previous Day", tint = contentColor)
-                }
-                Text(
-                    text = dateFormatter.format(selectedDate.time),
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    color = contentColor
-                )
-                IconButton(
-                    onClick = { viewModel.changeDate(1) },
-                    enabled = !isToday(selectedDate)
-                ) {
-                    Icon(
-                        Icons.Default.ChevronRight, 
-                        contentDescription = "Next Day", 
-                        tint = if (isToday(selectedDate)) contentColor.copy(alpha = 0.3f) else contentColor
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (shouldUseDarkText) Color.Black.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.1f)
-                ),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, contentColor.copy(alpha = 0.1f))
-            ) {
-                Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Total Time Today", style = MaterialTheme.typography.labelLarge, color = contentColor.copy(alpha = 0.7f))
-                    Text(
-                        text = formatDuration(totalTime),
-                        style = MaterialTheme.typography.displayMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = contentColor
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(bottom = 24.dp)
-            ) {
-                items(usageStats) { usage ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(modifier = Modifier.size(44.dp)) {
-                            usage.appInfo?.icon?.let {
-                                Image(bitmap = it, contentDescription = null, modifier = Modifier.fillMaxSize())
-                            } ?: Box(modifier = Modifier.fillMaxSize().background(contentColor.copy(alpha = 0.1f), CircleShape))
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                usage.appInfo?.label ?: usage.packageName.split(".").last(), 
-                                style = MaterialTheme.typography.titleMedium,
-                                color = contentColor
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            LinearProgressIndicator(
-                                progress = { if (totalTime > 0) usage.usageTime.toFloat() / totalTime else 0f },
-                                modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
-                                color = if (shouldUseDarkText) Color.Black else MaterialTheme.colorScheme.primary,
-                                trackColor = contentColor.copy(alpha = 0.1f)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = if (useWallpaper) Color.Transparent else MaterialTheme.colorScheme.background
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (!hasAccess) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Default.Lock, 
+                            contentDescription = null, 
+                            modifier = Modifier.size(64.dp),
+                            tint = if (shouldUseDarkText) Color.Black else MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            formatDuration(usage.usageTime), 
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
+                            "Usage access required", 
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.bodyLarge,
                             color = contentColor
                         )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Button(
+                            onClick = { viewModel.openUsageSettings(context) },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Grant Permission")
+                        }
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = { viewModel.changeDate(-1) }) {
+                        Icon(Icons.Default.ChevronLeft, contentDescription = "Previous Day", tint = contentColor)
+                    }
+                    Text(
+                        text = dateFormatter.format(selectedDate.time),
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = contentColor
+                    )
+                    IconButton(
+                        onClick = { viewModel.changeDate(1) },
+                        enabled = !isToday(selectedDate)
+                    ) {
+                        Icon(
+                            Icons.Default.ChevronRight, 
+                            contentDescription = "Next Day", 
+                            tint = if (isToday(selectedDate)) contentColor.copy(alpha = 0.3f) else contentColor
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (shouldUseDarkText) Color.Black.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.1f)
+                    ),
+                    shape = RoundedCornerShape(24.dp),
+                    border = BorderStroke(1.dp, contentColor.copy(alpha = 0.1f))
+                ) {
+                    Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Total Time Today", style = MaterialTheme.typography.labelLarge, color = contentColor.copy(alpha = 0.7f))
+                        Text(
+                            text = formatDuration(totalTime),
+                            style = MaterialTheme.typography.displayMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = contentColor
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(bottom = 24.dp)
+                ) {
+                    items(filteredStats) { usage ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(modifier = Modifier.size(44.dp)) {
+                                usage.appInfo?.icon?.let {
+                                    Image(bitmap = it, contentDescription = null, modifier = Modifier.fillMaxSize())
+                                } ?: Box(modifier = Modifier.fillMaxSize().background(contentColor.copy(alpha = 0.1f), CircleShape))
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    usage.appInfo?.label ?: usage.packageName.split(".").last(), 
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = contentColor
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                LinearProgressIndicator(
+                                    progress = { if (totalTime > 0) usage.usageTime.toFloat() / totalTime else 0f },
+                                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                                    color = if (shouldUseDarkText) Color.Black else MaterialTheme.colorScheme.primary,
+                                    trackColor = contentColor.copy(alpha = 0.1f)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text(
+                                formatDuration(usage.usageTime), 
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = contentColor
+                            )
+                        }
                     }
                 }
             }
