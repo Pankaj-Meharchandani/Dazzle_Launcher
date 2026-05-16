@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -40,8 +41,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -95,6 +94,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun LauncherRoot(viewModel: LauncherViewModel) {
     val homeApps by viewModel.homeApps.collectAsState()
+    val dockApps by viewModel.dockApps.collectAsState()
     val allApps by viewModel.allApps.collectAsState()
     val mode by viewModel.mode.collectAsState()
     val useWallpaper by viewModel.useWallpaper.collectAsState()
@@ -136,6 +136,7 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
                         AppDrawerContent(
                             apps = allApps,
                             homeApps = homeApps,
+                            dockApps = dockApps,
                             isExpanded = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded,
                             onAppClick = { pkg ->
                                 viewModel.launchApp(context, pkg)
@@ -146,7 +147,7 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
                     }
                 }
             },
-            sheetPeekHeight = if (mode == LauncherMode.HOME_AND_DRAWER) 80.dp else 0.dp,
+            sheetPeekHeight = if (mode == LauncherMode.HOME_AND_DRAWER) 40.dp else 0.dp,
             sheetDragHandle = {
                 if (mode == LauncherMode.HOME_AND_DRAWER) {
                     BottomSheetDefaults.DragHandle()
@@ -164,6 +165,7 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
             ) {
                 HomeScreen(
                     apps = homeApps,
+                    dockApps = dockApps,
                     onAppClick = { pkg -> viewModel.launchApp(context, pkg) },
                     onLongClick = { showSettings = true },
                     isDefault = isDefault,
@@ -178,7 +180,8 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
                     },
                     onSwipeDown = {
                         viewModel.openNotifications(context)
-                    }
+                    },
+                    onToggleDock = { viewModel.toggleDockApp(it) }
                 )
             }
         }
@@ -189,14 +192,16 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
 @Composable
 fun HomeScreen(
     apps: List<AppInfo>,
+    dockApps: List<AppInfo>,
     onAppClick: (String) -> Unit,
     onLongClick: () -> Unit,
     isDefault: Boolean,
     onSetDefault: () -> Unit,
     onSwipeUp: () -> Unit,
-    onSwipeDown: () -> Unit
+    onSwipeDown: () -> Unit,
+    onToggleDock: (AppInfo) -> Unit
 ) {
-    val itemsPerPage = 20
+    val itemsPerPage = 16
     val pages = if (apps.isEmpty()) 1 else (apps.size + itemsPerPage - 1) / itemsPerPage
     val pagerState = rememberPagerState(pageCount = { pages })
 
@@ -221,20 +226,20 @@ fun HomeScreen(
                 onClick = {},
                 onLongClick = onLongClick
             )
-            .padding(top = 64.dp)
+            .padding(top = 48.dp)
     ) {
         if (!isDefault) {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
                     .clickable { onSetDefault() },
                 color = MaterialTheme.colorScheme.primaryContainer,
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
                     "Set Dazzle as your default launcher",
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(12.dp),
                     style = MaterialTheme.typography.labelLarge,
                     textAlign = TextAlign.Center
                 )
@@ -250,8 +255,8 @@ fun HomeScreen(
         
         HorizontalPager(
             state = pagerState,
-            modifier = Modifier.weight(1f).fillMaxSize(),
-            contentPadding = PaddingValues(16.dp)
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)
         ) { page ->
             val startIdx = page * itemsPerPage
             val endIdx = minOf(startIdx + itemsPerPage, apps.size)
@@ -260,7 +265,7 @@ fun HomeScreen(
             LazyVerticalGrid(
                 columns = GridCells.Fixed(4),
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 userScrollEnabled = false
             ) {
@@ -268,34 +273,72 @@ fun HomeScreen(
                     items = pageApps,
                     key = { it.key }
                 ) { app ->
-                    AppItem(app, onAppClick)
-                }
-            }
-        }
-
-        // Page Indicator
-        if (pages > 1) {
-            Row(
-                Modifier
-                    .height(40.dp)
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                repeat(pages) { iteration ->
-                    val color = if (pagerState.currentPage == iteration) 
-                        MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-                    Box(
-                        modifier = Modifier
-                            .padding(4.dp)
-                            .clip(CircleShape)
-                            .background(color)
-                            .size(8.dp)
+                    AppItem(
+                        app = app, 
+                        onClick = onAppClick,
+                        onLongClick = { onToggleDock(app) }
                     )
                 }
             }
         }
-        
-        Spacer(modifier = Modifier.height(100.dp)) // Space for sheet peek
+
+        // Page Indicator and Dock area
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (pages > 1) {
+                Row(
+                    Modifier.height(24.dp).padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    repeat(pages) { iteration ->
+                        val color = if (pagerState.currentPage == iteration) 
+                            MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                        Box(
+                            modifier = Modifier
+                                .padding(3.dp)
+                                .clip(CircleShape)
+                                .background(color)
+                                .size(6.dp)
+                        )
+                    }
+                }
+            }
+            
+            Dock(apps = dockApps, onAppClick = onAppClick, onLongClick = onToggleDock)
+        }
+    }
+}
+
+@Composable
+fun Dock(apps: List<AppInfo>, onAppClick: (String) -> Unit, onLongClick: (AppInfo) -> Unit) {
+    val scale = if (apps.size >= 5) 0.85f else 1f
+    
+    Surface(
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .fillMaxWidth()
+            .height(90.dp),
+        color = Color.White.copy(alpha = 0.15f),
+        shape = RoundedCornerShape(28.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            apps.forEach { app ->
+                Box(modifier = Modifier.scale(scale)) {
+                    AppItem(
+                        app = app, 
+                        onClick = onAppClick, 
+                        onLongClick = { onLongClick(app) },
+                        showLabel = false
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -303,6 +346,7 @@ fun HomeScreen(
 fun AppDrawerContent(
     apps: List<AppInfo>,
     homeApps: List<AppInfo>,
+    dockApps: List<AppInfo>,
     isExpanded: Boolean,
     onAppClick: (String) -> Unit,
     onToggleHome: (AppInfo) -> Unit
@@ -352,7 +396,9 @@ fun AppDrawerContent(
                 items = filteredApps,
                 key = { it.key }
             ) { app ->
-                val isOnHome = homeApps.any { it.packageName == app.packageName }
+                val isOnHome = homeApps.any { it.packageName == app.packageName } || 
+                               dockApps.any { it.packageName == app.packageName }
+                
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     AppItem(app, onAppClick)
                     Checkbox(
@@ -444,10 +490,18 @@ fun ModeOption(title: String, description: String, selected: Boolean, onClick: (
 private val HexShape = HexagonShape()
 
 @Composable
-fun AppItem(app: AppInfo, onClick: (String) -> Unit) {
+fun AppItem(
+    app: AppInfo, 
+    onClick: (String) -> Unit, 
+    onLongClick: () -> Unit = {},
+    showLabel: Boolean = true
+) {
     Column(
         modifier = Modifier
-            .clickable { onClick(app.packageName) }
+            .combinedClickable(
+                onClick = { onClick(app.packageName) },
+                onLongClick = onLongClick
+            )
             .padding(4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -466,22 +520,24 @@ fun AppItem(app: AppInfo, onClick: (String) -> Unit) {
                 )
             }
         }
-        Text(
-            text = app.label,
-            fontSize = 11.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 4.dp),
-            lineHeight = 14.sp,
-            color = if (isSystemInDarkTheme()) Color.White else MaterialTheme.colorScheme.onSurface,
-            style = TextStyle(
-                shadow = Shadow(
-                    color = Color.Black.copy(alpha = 0.5f),
-                    offset = Offset(1f, 1f),
-                    blurRadius = 3f
+        if (showLabel) {
+            Text(
+                text = app.label,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 4.dp),
+                lineHeight = 14.sp,
+                color = if (isSystemInDarkTheme()) Color.White else MaterialTheme.colorScheme.onSurface,
+                style = TextStyle(
+                    shadow = Shadow(
+                        color = Color.Black.copy(alpha = 0.5f),
+                        offset = Offset(1f, 1f),
+                        blurRadius = 3f
+                    )
                 )
             )
-        )
+        }
     }
 }

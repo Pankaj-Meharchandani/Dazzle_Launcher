@@ -27,6 +27,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private val _homeApps = MutableStateFlow<List<AppInfo>>(emptyList())
     val homeApps: StateFlow<List<AppInfo>> = _homeApps.asStateFlow()
 
+    private val _dockApps = MutableStateFlow<List<AppInfo>>(emptyList())
+    val dockApps: StateFlow<List<AppInfo>> = _dockApps.asStateFlow()
+
     private val _mode = MutableStateFlow(
         LauncherMode.valueOf(prefs.getString("mode", LauncherMode.HOME_AND_DRAWER.name)!!)
     )
@@ -56,18 +59,39 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         
         _allApps.value = apps
         
+        updateDockApps(apps)
         updateHomeApps(apps)
     }
 
+    private fun updateDockApps(apps: List<AppInfo>) {
+        val savedDock = prefs.getStringSet("dock_apps", null)
+        if (savedDock != null) {
+            _dockApps.value = apps.filter { it.packageName in savedDock }
+        } else {
+            // Default: Phone and Calculator
+            _dockApps.value = apps.filter { 
+                it.label.equals("Phone", ignoreCase = true) || 
+                it.label.equals("Calculator", ignoreCase = true) 
+            }.take(5)
+        }
+    }
+
     private fun updateHomeApps(apps: List<AppInfo>) {
+        val dockPackageNames = _dockApps.value.map { it.packageName }
+        
         if (_mode.value == LauncherMode.HOME_ONLY) {
-            _homeApps.value = apps.shuffled()
+            // In HOME_ONLY, show all apps not in dock, shuffled
+            _homeApps.value = apps.filter { it.packageName !in dockPackageNames }.shuffled()
         } else {
             val savedHomeApps = prefs.getStringSet("home_apps", null)
             if (savedHomeApps != null) {
-                _homeApps.value = apps.filter { it.packageName in savedHomeApps }.shuffled()
+                // Show saved apps that are NOT in the dock
+                _homeApps.value = apps.filter { 
+                    it.packageName in savedHomeApps && it.packageName !in dockPackageNames 
+                }.shuffled()
             } else {
-                _homeApps.value = apps.take(12).shuffled()
+                // Default home apps: take first 12 that are NOT in the dock
+                _homeApps.value = apps.filter { it.packageName !in dockPackageNames }.take(12).shuffled()
             }
         }
     }
@@ -82,6 +106,28 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         updateHomeApps(_allApps.value)
     }
 
+    fun toggleDockApp(app: AppInfo) {
+        val currentDock = _dockApps.value.toMutableList()
+        val isAlreadyInDock = currentDock.any { it.packageName == app.packageName }
+        
+        if (isAlreadyInDock) {
+            currentDock.removeAll { it.packageName == app.packageName }
+        } else if (currentDock.size < 5) {
+            // Remove from home if adding to dock to avoid duplicates
+            val currentHome = _homeApps.value.toMutableList()
+            currentHome.removeAll { it.packageName == app.packageName }
+            _homeApps.value = currentHome
+            
+            currentDock.add(app)
+        }
+        
+        _dockApps.value = currentDock
+        prefs.edit().putStringSet("dock_apps", currentDock.map { it.packageName }.toSet()).apply()
+        
+        // Save home apps state too
+        prefs.edit().putStringSet("home_apps", _homeApps.value.map { it.packageName }.toSet()).apply()
+    }
+
     fun setUseWallpaper(use: Boolean) {
         _useWallpaper.value = use
         prefs.edit().putBoolean("use_wallpaper", use).apply()
@@ -90,11 +136,14 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun toggleHomeApp(app: AppInfo) {
         val currentHome = _homeApps.value.toMutableList()
+        val dockPackageNames = _dockApps.value.map { it.packageName }
+        
         if (currentHome.any { it.packageName == app.packageName }) {
             currentHome.removeAll { it.packageName == app.packageName }
-        } else {
+        } else if (app.packageName !in dockPackageNames) {
             currentHome.add(app)
         }
+
         _homeApps.value = currentHome
         prefs.edit().putStringSet("home_apps", currentHome.map { it.packageName }.toSet()).apply()
     }
