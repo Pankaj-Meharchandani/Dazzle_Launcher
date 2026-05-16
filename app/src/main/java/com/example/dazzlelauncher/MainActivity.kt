@@ -37,6 +37,8 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -123,6 +125,7 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
                     AppDrawerContent(
                         apps = allApps,
                         homeApps = homeApps,
+                        isExpanded = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded,
                         onAppClick = { pkg ->
                             viewModel.launchApp(context, pkg)
                             scope.launch { scaffoldState.bottomSheetState.partialExpand() }
@@ -285,10 +288,20 @@ fun HomeScreen(
 fun AppDrawerContent(
     apps: List<AppInfo>,
     homeApps: List<AppInfo>,
+    isExpanded: Boolean,
     onAppClick: (String) -> Unit,
     onToggleHome: (AppInfo) -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
+    val gridState = rememberLazyGridState()
+    
+    LaunchedEffect(isExpanded) {
+        if (isExpanded) {
+            gridState.scrollToItem(0)
+            searchQuery = "" // Also clear search when opening?
+        }
+    }
+
     val filteredApps = remember(apps, searchQuery) {
         if (searchQuery.isEmpty()) apps else {
             apps.filter { it.label.contains(searchQuery, ignoreCase = true) }
@@ -313,6 +326,7 @@ fun AppDrawerContent(
         )
         
         LazyVerticalGrid(
+            state = gridState,
             columns = GridCells.Fixed(4),
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 32.dp),
@@ -405,13 +419,13 @@ fun AppItem(app: AppInfo, onClick: (String) -> Unit) {
                 .size(60.dp)
                 .clip(HexagonShape())
                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                .padding(8.dp)
         ) {
             app.icon?.let {
                 Image(
                     bitmap = it.toBitmap().asImageBitmap(),
                     contentDescription = app.label,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
                 )
             }
         }

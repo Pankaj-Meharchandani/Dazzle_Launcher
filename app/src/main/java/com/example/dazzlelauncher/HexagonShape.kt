@@ -21,7 +21,7 @@ class HexagonShape : Shape {
                 val centerX = size.width / 2f
                 val centerY = size.height / 2f
                 for (i in 0..5) {
-                    val angle = Math.toRadians(60.0 * i)
+                    val angle = Math.toRadians(60.0 * i - 90.0)
                     val x = centerX + radius * cos(angle).toFloat()
                     val y = centerY + radius * sin(angle).toFloat()
                     if (i == 0) moveTo(x, y) else lineTo(x, y)
