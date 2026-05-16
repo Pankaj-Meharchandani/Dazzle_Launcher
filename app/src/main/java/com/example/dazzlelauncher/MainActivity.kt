@@ -266,9 +266,19 @@ fun HomeScreen(
         }
     }
 
+    val usageStats by viewModel.usageStats.collectAsState()
+    val totalTimeToday = remember(usageStats) { 
+        usageStats.sumOf { it.usageTime } 
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.fetchUsageStats()
+    }
+
     val timeFormatter = remember(is24Hour) { 
         SimpleDateFormat(if (is24Hour) "HH:mm" else "h:mm", Locale.getDefault()) 
     }
+    val amPmFormatter = remember { SimpleDateFormat("a", Locale.getDefault()) }
     val dateFormatter = remember { SimpleDateFormat("EEE, MMM d", Locale.getDefault()) }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -330,20 +340,44 @@ fun HomeScreen(
                     overflow = TextOverflow.Ellipsis
                 )
             } else {
-                Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-                    Text(
-                        text = timeFormatter.format(currentTime.time),
-                        style = MaterialTheme.typography.displayLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 64.sp
-                        ),
-                        color = if (shouldUseDarkText) Color.Black else Color.White
-                    )
-                    Text(
-                        text = dateFormatter.format(currentTime.time),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = if (shouldUseDarkText) Color.Black.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.7f)
-                    )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = timeFormatter.format(currentTime.time),
+                            style = MaterialTheme.typography.displayLarge.copy(
+                                fontWeight = FontWeight.Normal,
+                                fontSize = 56.sp
+                            ),
+                            color = if (shouldUseDarkText) Color.Black else Color.White
+                        )
+                        if (!is24Hour) {
+                            Text(
+                                text = amPmFormatter.format(currentTime.time),
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                modifier = Modifier.padding(bottom = 10.dp, start = 4.dp),
+                                color = if (shouldUseDarkText) Color.Black else Color.White
+                            )
+                        }
+                    }
+                    
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = dateFormatter.format(currentTime.time),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = if (shouldUseDarkText) Color.Black else Color.White
+                        )
+                        Text(
+                            text = "${formatDuration(totalTimeToday)} Today",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = if (shouldUseDarkText) Color.Black.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.7f)
+                        )
+                    }
                 }
             }
             
