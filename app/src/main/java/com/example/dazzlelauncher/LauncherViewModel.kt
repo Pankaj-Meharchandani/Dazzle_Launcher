@@ -42,6 +42,10 @@ enum class WidgetType {
     SCREEN_TIME, NEXT_ALARM, BATTERY_TEMP, CALENDAR_EVENT
 }
 
+enum class IconShape {
+    HEX, SQUIRCLE, ROUND, SQUARE, FLOWER
+}
+
 data class AppUsageInfo(
     val appInfo: AppInfo?,
     val packageName: String,
@@ -86,6 +90,11 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         WidgetType.valueOf(prefs?.getString("widget_type", WidgetType.SCREEN_TIME.name) ?: WidgetType.SCREEN_TIME.name)
     )
     val widgetType: StateFlow<WidgetType> = _widgetType.asStateFlow()
+
+    private val _iconShape = MutableStateFlow(
+        IconShape.valueOf(prefs?.getString("icon_shape", IconShape.HEX.name) ?: IconShape.HEX.name)
+    )
+    val iconShape: StateFlow<IconShape> = _iconShape.asStateFlow()
 
     private val _batteryInfo = MutableStateFlow("Loading...")
     val batteryInfo: StateFlow<String> = _batteryInfo.asStateFlow()
@@ -134,6 +143,11 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             WidgetType.CALENDAR_EVENT -> fetchCalendarEvent()
             else -> {}
         }
+    }
+
+    fun setIconShape(shape: IconShape) {
+        _iconShape.value = shape
+        prefs?.edit()?.putString("icon_shape", shape.name)?.apply()
     }
 
     fun fetchNextAlarm() {

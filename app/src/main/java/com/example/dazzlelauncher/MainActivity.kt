@@ -53,6 +53,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -128,6 +129,7 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
     val is24Hour by viewModel.is24Hour.collectAsState()
     val isDefault by viewModel.isDefault.collectAsState()
     val shouldUseDarkText by viewModel.shouldUseDarkText.collectAsState()
+    val iconShape by viewModel.iconShape.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     
@@ -163,11 +165,13 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
             blurDrawer = blurDrawer,
             is24Hour = is24Hour,
             widgetType = widgetType,
+            iconShape = iconShape,
             onModeChange = { viewModel.setMode(it) },
             onWallpaperToggle = { viewModel.setUseWallpaper(it) },
             onBlurDrawerToggle = { viewModel.setBlurDrawer(it) },
             onTimeFormatToggle = { viewModel.setIs24Hour(it) },
             onWidgetTypeChange = { viewModel.setWidgetType(it) },
+            onIconShapeChange = { viewModel.setIconShape(it) },
             onClose = { showSettings = false }
         )
     } else {
@@ -187,7 +191,8 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
                             },
                             onToggleHome = { viewModel.toggleHomeApp(it) },
                             shouldUseDarkText = shouldUseDarkText,
-                            blurDrawer = blurDrawer
+                            blurDrawer = blurDrawer,
+                            iconShape = iconShape
                         )
                     }
                 }
@@ -243,7 +248,8 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
                     shouldUseDarkText = shouldUseDarkText,
                     viewModel = viewModel,
                     useWallpaper = useWallpaper,
-                    is24Hour = is24Hour
+                    is24Hour = is24Hour,
+                    iconShape = iconShape
                 )
             }
         }
@@ -265,7 +271,8 @@ fun HomeScreen(
     shouldUseDarkText: Boolean,
     viewModel: LauncherViewModel,
     useWallpaper: Boolean,
-    is24Hour: Boolean
+    is24Hour: Boolean,
+    iconShape: IconShape
 ) {
     val context = LocalContext.current
     var currentTime by remember { mutableStateOf(Calendar.getInstance()) }
@@ -415,7 +422,7 @@ fun HomeScreen(
                 beyondViewportPageCount = 1
             ) { page ->
                 if (page == 0) {
-                    ScreentimePage(viewModel = viewModel, shouldUseDarkText = shouldUseDarkText, useWallpaper = useWallpaper)
+                    ScreentimePage(viewModel = viewModel, shouldUseDarkText = shouldUseDarkText, useWallpaper = useWallpaper, iconShape = iconShape)
                 } else {
                     val appPage = page - 1
                     val startIdx = appPage * itemsPerPage
@@ -438,7 +445,8 @@ fun HomeScreen(
                                 app = app, 
                                 onClick = onAppClick,
                                 onLongClick = { onToggleDock(app) },
-                                labelColor = if (shouldUseDarkText) Color.Black else Color.White
+                                labelColor = if (shouldUseDarkText) Color.Black else Color.White,
+                                iconShape = iconShape
                             )
                         }
                     }
@@ -506,7 +514,7 @@ fun HomeScreen(
                         Box(
                             modifier = Modifier
                                 .size(60.dp)
-                                .clip(HexShape)
+                                .clip(getIconShape(iconShape))
                                 .background(MaterialTheme.colorScheme.surfaceVariant),
                             contentAlignment = Alignment.Center
                         ) {
@@ -534,7 +542,7 @@ fun HomeScreen(
                         Box(
                             modifier = Modifier
                                 .size(60.dp)
-                                .clip(HexShape)
+                                .clip(getIconShape(iconShape))
                                 .background(MaterialTheme.colorScheme.surfaceVariant),
                             contentAlignment = Alignment.Center
                         ) {
@@ -554,7 +562,7 @@ fun HomeScreen(
                     }
                 }
             } else {
-                Dock(apps = dockApps, onAppClick = onAppClick, onLongClick = onToggleDock)
+                Dock(apps = dockApps, onAppClick = onAppClick, onLongClick = onToggleDock, iconShape = iconShape)
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
@@ -562,7 +570,7 @@ fun HomeScreen(
 }
 
 @Composable
-fun Dock(apps: List<AppInfo>, onAppClick: (String) -> Unit, onLongClick: (AppInfo) -> Unit) {
+fun Dock(apps: List<AppInfo>, onAppClick: (String) -> Unit, onLongClick: (AppInfo) -> Unit, iconShape: IconShape) {
     val scale = if (apps.size >= 5) 0.85f else 1f
     
     Surface(
@@ -585,7 +593,8 @@ fun Dock(apps: List<AppInfo>, onAppClick: (String) -> Unit, onLongClick: (AppInf
                         app = app, 
                         onClick = onAppClick, 
                         onLongClick = { onLongClick(app) },
-                        showLabel = false
+                        showLabel = false,
+                        iconShape = iconShape
                     )
                 }
             }
@@ -602,7 +611,8 @@ fun AppDrawerContent(
     onAppClick: (String) -> Unit,
     onToggleHome: (AppInfo) -> Unit,
     shouldUseDarkText: Boolean,
-    blurDrawer: Boolean
+    blurDrawer: Boolean,
+    iconShape: IconShape
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val gridState = rememberLazyGridState()
@@ -664,7 +674,7 @@ fun AppDrawerContent(
                                    dockApps.any { it.packageName == app.packageName }
                     
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        AppItem(app, onAppClick, labelColor = labelColor)
+                        AppItem(app, onAppClick, labelColor = labelColor, iconShape = iconShape)
                         Checkbox(
                             checked = isOnHome,
                             onCheckedChange = { onToggleHome(app) },
@@ -688,11 +698,13 @@ fun SettingsScreen(
     blurDrawer: Boolean,
     is24Hour: Boolean,
     widgetType: WidgetType,
+    iconShape: IconShape,
     onModeChange: (LauncherMode) -> Unit,
     onWallpaperToggle: (Boolean) -> Unit,
     onBlurDrawerToggle: (Boolean) -> Unit,
     onTimeFormatToggle: (Boolean) -> Unit,
     onWidgetTypeChange: (WidgetType) -> Unit,
+    onIconShapeChange: (IconShape) -> Unit,
     onClose: () -> Unit
 ) {
     BackHandler(onBack = onClose)
@@ -792,6 +804,23 @@ fun SettingsScreen(
                 )
             }
 
+            Spacer(modifier = Modifier.height(24.dp))
+            Text("Icon Shape", style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                IconShapeOption("Hex", IconShape.HEX, iconShape == IconShape.HEX) { onIconShapeChange(IconShape.HEX) }
+                IconShapeOption("Squircle", IconShape.SQUIRCLE, iconShape == IconShape.SQUIRCLE) { onIconShapeChange(IconShape.SQUIRCLE) }
+                IconShapeOption("Round", IconShape.ROUND, iconShape == IconShape.ROUND) { onIconShapeChange(IconShape.ROUND) }
+                IconShapeOption("Square", IconShape.SQUARE, iconShape == IconShape.SQUARE) { onIconShapeChange(IconShape.SQUARE) }
+                IconShapeOption("Flower", IconShape.FLOWER, iconShape == IconShape.FLOWER) { onIconShapeChange(IconShape.FLOWER) }
+            }
+
             Spacer(modifier = Modifier.height(44.dp))
             Text("Launcher Mode", style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(16.dp))
@@ -844,10 +873,10 @@ fun ModeOption(title: String, description: String, selected: Boolean, onClick: (
     }
 }
 
-private val HexShape = HexagonShape()
+private val HexShape = HexagonShape() // This can be removed if not used elsewhere
 
 @Composable
-fun ScreentimePage(viewModel: LauncherViewModel, shouldUseDarkText: Boolean, useWallpaper: Boolean) {
+fun ScreentimePage(viewModel: LauncherViewModel, shouldUseDarkText: Boolean, useWallpaper: Boolean, iconShape: IconShape) {
     val usageStats by viewModel.usageStats.collectAsState()
     val selectedDate by viewModel.selectedDate.collectAsState()
     val context = LocalContext.current
@@ -969,10 +998,10 @@ fun ScreentimePage(viewModel: LauncherViewModel, shouldUseDarkText: Boolean, use
                                 .padding(vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(modifier = Modifier.size(44.dp)) {
+                            Box(modifier = Modifier.size(44.dp).clip(getIconShape(iconShape))) {
                                 usage.appInfo?.icon?.let {
                                     Image(bitmap = it, contentDescription = null, modifier = Modifier.fillMaxSize())
-                                } ?: Box(modifier = Modifier.fillMaxSize().background(contentColor.copy(alpha = 0.1f), CircleShape))
+                                } ?: Box(modifier = Modifier.fillMaxSize().background(contentColor.copy(alpha = 0.1f), getIconShape(iconShape)))
                             }
                             Spacer(modifier = Modifier.width(16.dp))
                             Column(modifier = Modifier.weight(1f)) {
@@ -1077,13 +1106,48 @@ fun WidgetOption(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
+fun IconShapeOption(label: String, shape: IconShape, selected: Boolean, onClick: () -> Unit) {
+    val displayShape = getIconShape(shape)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable { onClick() }.padding(4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(displayShape)
+                .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(top = 4.dp),
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+@Composable
+fun getIconShape(shapeType: IconShape): Shape {
+    return when (shapeType) {
+        IconShape.HEX -> HexagonShape()
+        IconShape.SQUIRCLE -> SquircleShape()
+        IconShape.ROUND -> CircleShape
+        IconShape.SQUARE -> RoundedCornerShape(12.dp)
+        IconShape.FLOWER -> FlowerShape()
+    }
+}
+
+@Composable
 fun AppItem(
     app: AppInfo, 
     onClick: (String) -> Unit, 
     onLongClick: () -> Unit = {},
     showLabel: Boolean = true,
-    labelColor: Color = if (isSystemInDarkTheme()) Color.White else MaterialTheme.colorScheme.onSurface
+    labelColor: Color = if (isSystemInDarkTheme()) Color.White else MaterialTheme.colorScheme.onSurface,
+    iconShape: IconShape = IconShape.HEX
 ) {
+    val shape = getIconShape(iconShape)
     Column(
         modifier = Modifier
             .combinedClickable(
@@ -1096,7 +1160,7 @@ fun AppItem(
         Box(
             modifier = Modifier
                 .size(60.dp)
-                .clip(HexShape)
+                .clip(shape)
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
             app.icon?.let {
