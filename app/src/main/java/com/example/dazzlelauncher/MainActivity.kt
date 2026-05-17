@@ -694,11 +694,18 @@ fun AppDrawerContent(
                         if (isOnHome) {
                             Box(
                                 modifier = Modifier
-                                    .padding(top = 8.dp, end = 12.dp)
-                                    .size(8.dp)
-                                    .background(MaterialTheme.colorScheme.primary, CircleShape)
-                                    .background(Color.White.copy(alpha = 0.3f), CircleShape)
-                            )
+                                    .padding(top = 6.dp, end = 10.dp)
+                                    .size(12.dp)
+                                    .background(MaterialTheme.colorScheme.primary, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(9.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimary
+                                )
+                            }
                         }
 
                         // Invisible clickable area to toggle home status if needed, 
