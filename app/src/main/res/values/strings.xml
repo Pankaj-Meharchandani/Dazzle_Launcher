@@ -1,3 +1,16 @@
 <resources>
     <string name="app_name">Dazzle</string>
+    <string name="posture_alert_title">Posture Alert</string>
+    <string name="posture_alert_desc">Alert when holding phone at an unhealthy angle</string>
+    <string name="posture_sensitivity_relaxed">Relaxed (30°)</string>
+    <string name="posture_sensitivity_normal">Normal (45°)</string>
+    <string name="posture_sensitivity_strict">Strict (60°)</string>
+    <string name="posture_duration_15s">15s</string>
+    <string name="posture_duration_30s">30s</string>
+    <string name="posture_duration_60s">1m</string>
+    <string name="posture_duration_120s">2m</string>
+    <string name="posture_banner_text">Raise your phone to eye level</string>
+    <string name="posture_service_channel_name">Posture Alert Service</string>
+    <string name="posture_service_notification_title">Posture Monitoring Active</string>
+    <string name="posture_service_notification_desc">Dazzle Launcher is helping you stay upright</string>
 </resources>

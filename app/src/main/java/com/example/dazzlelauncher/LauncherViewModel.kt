@@ -133,6 +133,21 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    private val _postureAlertEnabled = MutableStateFlow(prefs.getBoolean("posture_alert_enabled", false))
+    val postureAlertEnabled: StateFlow<Boolean> = _postureAlertEnabled.asStateFlow()
+
+    private val _postureSensitivity = MutableStateFlow(prefs.getInt("posture_sensitivity", 45))
+    val postureSensitivity: StateFlow<Int> = _postureSensitivity.asStateFlow()
+
+    private val _postureDuration = MutableStateFlow(prefs.getInt("posture_duration", 30))
+    val postureDuration: StateFlow<Int> = _postureDuration.asStateFlow()
+
+    private val _postureQuietStart = MutableStateFlow(prefs.getString("posture_quiet_start", "23:00") ?: "23:00")
+    val postureQuietStart: StateFlow<String> = _postureQuietStart.asStateFlow()
+
+    private val _postureQuietEnd = MutableStateFlow(prefs.getString("posture_quiet_end", "07:00") ?: "07:00")
+    val postureQuietEnd: StateFlow<String> = _postureQuietEnd.asStateFlow()
+
     private val _usageStats = MutableStateFlow<List<AppUsageInfo>>(emptyList())
     val usageStats: StateFlow<List<AppUsageInfo>> = _usageStats.asStateFlow()
 
@@ -149,6 +164,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         getApplication<Application>().registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         fetchNextAlarm()
         fetchCalendarEvent()
+        updatePostureService(getApplication())
     }
 
     fun setWidgetType(type: WidgetType) {
@@ -580,6 +596,45 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             method.invoke(statusBarService)
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+    }
+
+    fun setPostureAlertEnabled(enabled: Boolean, context: Context) {
+        _postureAlertEnabled.value = enabled
+        prefs.edit().putBoolean("posture_alert_enabled", enabled).apply()
+        updatePostureService(context)
+    }
+
+    fun setPostureSensitivity(sensitivity: Int, context: Context) {
+        _postureSensitivity.value = sensitivity
+        prefs.edit().putInt("posture_sensitivity", sensitivity).apply()
+        updatePostureService(context)
+    }
+
+    fun setPostureDuration(duration: Int, context: Context) {
+        _postureDuration.value = duration
+        prefs.edit().putInt("posture_duration", duration).apply()
+        updatePostureService(context)
+    }
+
+    fun setPostureQuietHours(start: String, end: String, context: Context) {
+        _postureQuietStart.value = start
+        _postureQuietEnd.value = end
+        prefs.edit().putString("posture_quiet_start", start).putString("posture_quiet_end", end).apply()
+        updatePostureService(context)
+    }
+
+    private fun updatePostureService(context: Context) {
+        val intent = Intent(context, PostureAlertService::class.java)
+        if (_postureAlertEnabled.value) {
+            intent.action = "UPDATE_SETTINGS"
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        } else {
+            context.stopService(intent)
         }
     }
 }

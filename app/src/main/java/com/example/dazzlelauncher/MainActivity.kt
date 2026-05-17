@@ -1,16 +1,20 @@
 package com.example.dazzlelauncher
 
+import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -92,8 +96,34 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
     val shouldUseDarkText by viewModel.shouldUseDarkText.collectAsState()
     val iconShape by viewModel.iconShape.collectAsState()
     val shuffleType by viewModel.shuffleType.collectAsState()
+    val postureAlertEnabled by viewModel.postureAlertEnabled.collectAsState()
+    val postureSensitivity by viewModel.postureSensitivity.collectAsState()
+    val postureDuration by viewModel.postureDuration.collectAsState()
+    val postureQuietStart by viewModel.postureQuietStart.collectAsState()
+    val postureQuietEnd by viewModel.postureQuietEnd.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        // Handle permissions if needed
+    }
+
+    LaunchedEffect(Unit) {
+        val permissions = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        if (context.checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.READ_PHONE_STATE)
+        }
+        if (permissions.isNotEmpty()) {
+            permissionLauncher.launch(permissions.toTypedArray())
+        }
+    }
     
     val scaffoldState = rememberBottomSheetScaffoldState(
         bottomSheetState = rememberStandardBottomSheetState(
@@ -142,6 +172,11 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
             is24Hour = is24Hour,
             widgetType = widgetType,
             iconShape = iconShape,
+            postureAlertEnabled = postureAlertEnabled,
+            postureSensitivity = postureSensitivity,
+            postureDuration = postureDuration,
+            postureQuietStart = postureQuietStart,
+            postureQuietEnd = postureQuietEnd,
             onModeChange = { viewModel.setMode(it) },
             onShuffleTypeChange = { viewModel.setShuffleType(it) },
             onOpenSelectiveShuffle = { showSelectiveShuffle = true },
@@ -150,6 +185,10 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
             onTimeFormatToggle = { viewModel.setIs24Hour(it) },
             onWidgetTypeChange = { viewModel.setWidgetType(it) },
             onIconShapeChange = { viewModel.setIconShape(it) },
+            onPostureAlertToggle = { viewModel.setPostureAlertEnabled(it, context) },
+            onPostureSensitivityChange = { viewModel.setPostureSensitivity(it, context) },
+            onPostureDurationChange = { viewModel.setPostureDuration(it, context) },
+            onPostureQuietHoursChange = { start, end -> viewModel.setPostureQuietHours(start, end, context) },
             onClose = { showSettings = false }
         )
     } else {

@@ -1,6 +1,8 @@
 package com.example.dazzlelauncher
 
 import android.Manifest
+import android.app.TimePickerDialog
+import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -36,6 +38,11 @@ fun SettingsScreen(
     is24Hour: Boolean,
     widgetType: WidgetType,
     iconShape: IconShape,
+    postureAlertEnabled: Boolean,
+    postureSensitivity: Int,
+    postureDuration: Int,
+    postureQuietStart: String,
+    postureQuietEnd: String,
     onModeChange: (LauncherMode) -> Unit,
     onShuffleTypeChange: (ShuffleType) -> Unit,
     onOpenSelectiveShuffle: () -> Unit,
@@ -44,14 +51,28 @@ fun SettingsScreen(
     onTimeFormatToggle: (Boolean) -> Unit,
     onWidgetTypeChange: (WidgetType) -> Unit,
     onIconShapeChange: (IconShape) -> Unit,
+    onPostureAlertToggle: (Boolean) -> Unit,
+    onPostureSensitivityChange: (Int) -> Unit,
+    onPostureDurationChange: (Int) -> Unit,
+    onPostureQuietHoursChange: (String, String) -> Unit,
     onClose: () -> Unit
 ) {
     BackHandler(onBack = onClose)
     
+    val context = LocalContext.current
+    val overlayPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (android.provider.Settings.canDrawOverlays(context)) {
+            onPostureAlertToggle(true)
+        }
+    }
+
     Surface(
         modifier = Modifier.fillMaxSize(), 
         color = MaterialTheme.colorScheme.background
     ) {
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -198,6 +219,84 @@ fun SettingsScreen(
                     IconShapeOption("Round", IconShape.ROUND, iconShape == IconShape.ROUND) { onIconShapeChange(IconShape.ROUND) }
                     IconShapeOption("Square", IconShape.SQUARE, iconShape == IconShape.SQUARE) { onIconShapeChange(IconShape.SQUARE) }
                     IconShapeOption("Octagon", IconShape.OCTAGON, iconShape == IconShape.OCTAGON) { onIconShapeChange(IconShape.OCTAGON) }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            SettingsSection(title = "Health") {
+                SettingsToggleItem(
+                    icon = Icons.Default.AccessibilityNew,
+                    title = "Posture Alert",
+                    description = "Alert when holding phone at an unhealthy angle",
+                    checked = postureAlertEnabled,
+                    onCheckedChange = { enabled ->
+                        if (enabled) {
+                            if (android.provider.Settings.canDrawOverlays(context)) {
+                                onPostureAlertToggle(true)
+                            } else {
+                                val intent = Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
+                                overlayPermissionLauncher.launch(intent)
+                            }
+                        } else {
+                            onPostureAlertToggle(false)
+                        }
+                    }
+                )
+
+                if (postureAlertEnabled) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        "Sensitivity",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        SensitivityOption("Relaxed", 30, postureSensitivity == 30) { onPostureSensitivityChange(30) }
+                        SensitivityOption("Normal", 45, postureSensitivity == 45) { onPostureSensitivityChange(45) }
+                        SensitivityOption("Strict", 60, postureSensitivity == 60) { onPostureSensitivityChange(60) }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        "Duration Before Alert",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        DurationOption("15s", 15, postureDuration == 15) { onPostureDurationChange(15) }
+                        DurationOption("30s", 30, postureDuration == 30) { onPostureDurationChange(30) }
+                        DurationOption("60s", 60, postureDuration == 60) { onPostureDurationChange(60) }
+                        DurationOption("2m", 120, postureDuration == 120) { onPostureDurationChange(120) }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    SettingsClickableItem(
+                        icon = Icons.Default.Bedtime,
+                        title = "Quiet Hours",
+                        value = "$postureQuietStart - $postureQuietEnd",
+                        onClick = {
+                            val startParts = postureQuietStart.split(":")
+                            TimePickerDialog(context, { _, h, m ->
+                                val newStart = "%02d:%02d".format(h, m)
+                                val endParts = postureQuietEnd.split(":")
+                                TimePickerDialog(context, { _, eh, em ->
+                                    val newEnd = "%02d:%02d".format(eh, em)
+                                    onPostureQuietHoursChange(newStart, newEnd)
+                                }, endParts[0].toInt(), endParts[1].toInt(), true).show()
+                            }, startParts[0].toInt(), startParts[1].toInt(), true).show()
+                        }
+                    )
                 }
             }
 
@@ -438,4 +537,22 @@ fun IconShapeOption(label: String, shape: IconShape, selected: Boolean, onClick:
             color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
         )
     }
+}
+
+@Composable
+fun SensitivityOption(label: String, angle: Int, selected: Boolean, onClick: () -> Unit) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(label) }
+    )
+}
+
+@Composable
+fun DurationOption(label: String, seconds: Int, selected: Boolean, onClick: () -> Unit) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(label) }
+    )
 }
