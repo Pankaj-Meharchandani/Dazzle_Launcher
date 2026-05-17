@@ -247,15 +247,22 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun updateDockApps(apps: List<AppInfo>) {
-        val savedDock = prefs.getStringSet("dock_apps", null)
-        if (savedDock != null) {
-            _dockApps.value = apps.filter { it.packageName in savedDock }
+        val savedDockList = prefs.getString("dock_apps_list", null)
+        if (savedDockList != null) {
+            val packageNames = savedDockList.split(",")
+            _dockApps.value = packageNames.mapNotNull { pkg -> apps.find { it.packageName == pkg } }
         } else {
-            // Default: Phone and Calculator
-            _dockApps.value = apps.filter { 
-                it.label.equals("Phone", ignoreCase = true) || 
-                it.label.equals("Calculator", ignoreCase = true) 
-            }.take(5)
+            val savedDockSet = prefs.getStringSet("dock_apps", null)
+            if (savedDockSet != null) {
+                // Fallback to set but maintain some order from apps list
+                _dockApps.value = apps.filter { it.packageName in savedDockSet }
+            } else {
+                // Default: Phone and Calculator
+                _dockApps.value = apps.filter { 
+                    it.label.equals("Phone", ignoreCase = true) || 
+                    it.label.equals("Calculator", ignoreCase = true) 
+                }.take(5)
+            }
         }
     }
 
@@ -311,7 +318,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
         
         _dockApps.value = currentDock
-        prefs.edit().putStringSet("dock_apps", currentDock.map { it.packageName }.toSet()).apply()
+        prefs.edit().putString("dock_apps_list", currentDock.joinToString(",") { it.packageName }).apply()
         
         // Save home apps state too
         prefs.edit().putStringSet("home_apps", _homeApps.value.map { it.packageName }.toSet()).apply()
