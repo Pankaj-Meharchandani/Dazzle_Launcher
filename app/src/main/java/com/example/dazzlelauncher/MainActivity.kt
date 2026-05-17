@@ -144,29 +144,31 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
         BottomSheetScaffold(
             scaffoldState = scaffoldState,
             sheetContent = {
-                if (mode == LauncherMode.HOME_AND_DRAWER) {
-                    Box(modifier = Modifier.fillMaxHeight(0.92f)) {
-                        AppDrawerContent(
-                            apps = allApps,
-                            homeApps = homeApps,
-                            dockApps = dockApps,
-                            isExpanded = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded,
-                            onAppClick = { pkg ->
-                                viewModel.launchApp(context, pkg)
-                                scope.launch { scaffoldState.bottomSheetState.partialExpand() }
-                            },
-                            onToggleHome = { viewModel.toggleHomeApp(it) },
-                            shouldUseDarkText = shouldUseDarkText,
-                            blurDrawer = blurDrawer,
-                            iconShape = iconShape
-                        )
-                    }
+                Box(modifier = Modifier.fillMaxHeight(0.92f)) {
+                    AppDrawerContent(
+                        apps = allApps,
+                        homeApps = homeApps,
+                        dockApps = dockApps,
+                        isExpanded = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded,
+                        onAppClick = { pkg ->
+                            viewModel.launchApp(context, pkg)
+                            scope.launch { scaffoldState.bottomSheetState.partialExpand() }
+                        },
+                        onToggleHome = { viewModel.toggleHomeApp(it) },
+                        shouldUseDarkText = shouldUseDarkText,
+                        blurDrawer = blurDrawer,
+                        iconShape = iconShape,
+                        launcherMode = mode
+                    )
                 }
             },
             sheetPeekHeight = if (mode == LauncherMode.HOME_AND_DRAWER) 40.dp else 0.dp,
             sheetDragHandle = {
                 if (mode == LauncherMode.HOME_AND_DRAWER) {
                     BottomSheetDefaults.DragHandle()
+                } else {
+                    // Small drag handle or none for minimal search
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             },
             sheetContainerColor = if (blurDrawer) {
@@ -203,9 +205,7 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
                         context.startActivity(intent)
                     },
                     onSwipeUp = {
-                        if (mode == LauncherMode.HOME_AND_DRAWER) {
-                            scope.launch { scaffoldState.bottomSheetState.expand() }
-                        }
+                        scope.launch { scaffoldState.bottomSheetState.expand() }
                     },
                     onSwipeDown = {
                         viewModel.openNotifications(context)

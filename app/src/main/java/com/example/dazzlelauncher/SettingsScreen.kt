@@ -74,6 +74,26 @@ fun SettingsScreen(
             
             Spacer(modifier = Modifier.height(32.dp))
             
+            SettingsSection(title = "Launcher Mode") {
+                ModeOption(
+                    title = "Classic",
+                    description = "Home screen & App Drawer",
+                    selected = currentMode == LauncherMode.HOME_AND_DRAWER,
+                    onClick = { onModeChange(LauncherMode.HOME_AND_DRAWER) }
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                ModeOption(
+                    title = "Minimal",
+                    description = "All apps on home screen",
+                    selected = currentMode == LauncherMode.HOME_ONLY,
+                    onClick = { onModeChange(LauncherMode.HOME_ONLY) }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            
             SettingsSection(title = "Appearance") {
                 SettingsToggleItem(
                     icon = Icons.Default.Wallpaper,
@@ -149,26 +169,6 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            SettingsSection(title = "Launcher Mode") {
-                ModeOption(
-                    title = "Classic",
-                    description = "Home screen & App Drawer",
-                    selected = currentMode == LauncherMode.HOME_AND_DRAWER,
-                    onClick = { onModeChange(LauncherMode.HOME_AND_DRAWER) }
-                )
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                ModeOption(
-                    title = "Minimal",
-                    description = "All apps on home screen",
-                    selected = currentMode == LauncherMode.HOME_ONLY,
-                    onClick = { onModeChange(LauncherMode.HOME_ONLY) }
-                )
-            }
-            
             Spacer(modifier = Modifier.height(48.dp))
         }
     }

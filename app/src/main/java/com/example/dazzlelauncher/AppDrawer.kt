@@ -15,6 +15,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
@@ -29,20 +31,29 @@ fun AppDrawerContent(
     onToggleHome: (AppInfo) -> Unit,
     shouldUseDarkText: Boolean,
     blurDrawer: Boolean,
-    iconShape: IconShape
+    iconShape: IconShape,
+    launcherMode: LauncherMode
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val gridState = rememberLazyGridState()
+    val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(isExpanded) {
         if (!isExpanded) {
             gridState.scrollToItem(0)
             searchQuery = ""
+        } else {
+            // Auto-focus search when drawer opens
+            focusRequester.requestFocus()
         }
     }
 
-    val filteredApps = remember(apps, searchQuery) {
-        if (searchQuery.isEmpty()) apps else {
+    val isMinimal = launcherMode == LauncherMode.HOME_ONLY
+
+    val filteredApps = remember(apps, dockApps, searchQuery, launcherMode) {
+        if (searchQuery.isEmpty()) {
+            if (isMinimal) dockApps else apps
+        } else {
             apps.filter { it.label.contains(searchQuery, ignoreCase = true) }
         }
     }
@@ -60,8 +71,9 @@ fun AppDrawerContent(
                 onValueChange = { searchQuery = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 16.dp, bottom = 24.dp)
-                    .height(56.dp),
+                    .padding(top = 16.dp, bottom = 12.dp)
+                    .height(56.dp)
+                    .focusRequester(focusRequester),
                 placeholder = { Text("Search apps...", color = labelColor.copy(alpha = 0.5f)) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = labelColor.copy(alpha = 0.5f)) },
                 shape = CircleShape,
@@ -77,6 +89,17 @@ fun AppDrawerContent(
                     unfocusedTextColor = labelColor
                 )
             )
+
+            if (isMinimal && searchQuery.isEmpty()) {
+                Text(
+                    text = "Quick access",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = labelColor.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(start = 8.dp, bottom = 16.dp, top = 8.dp)
+                )
+            } else {
+                Spacer(modifier = Modifier.height(12.dp))
+            }
             
             LazyVerticalGrid(
                 state = gridState,
