@@ -30,12 +30,15 @@ import androidx.core.content.ContextCompat
 @Composable
 fun SettingsScreen(
     currentMode: LauncherMode,
+    shuffleType: ShuffleType,
     useWallpaper: Boolean,
     blurDrawer: Boolean,
     is24Hour: Boolean,
     widgetType: WidgetType,
     iconShape: IconShape,
     onModeChange: (LauncherMode) -> Unit,
+    onShuffleTypeChange: (ShuffleType) -> Unit,
+    onOpenSelectiveShuffle: () -> Unit,
     onWallpaperToggle: (Boolean) -> Unit,
     onBlurDrawerToggle: (Boolean) -> Unit,
     onTimeFormatToggle: (Boolean) -> Unit,
@@ -90,6 +93,35 @@ fun SettingsScreen(
                     selected = currentMode == LauncherMode.HOME_ONLY,
                     onClick = { onModeChange(LauncherMode.HOME_ONLY) }
                 )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            SettingsSection(title = "Shuffling") {
+                ModeOption(
+                    title = "Full Shuffle",
+                    description = "Shuffle all apps on home screen",
+                    selected = shuffleType == ShuffleType.FULL,
+                    onClick = { onShuffleTypeChange(ShuffleType.FULL) }
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                ModeOption(
+                    title = "Selective Shuffle",
+                    description = "Shuffle only selected apps",
+                    selected = shuffleType == ShuffleType.SELECTIVE,
+                    onClick = { onShuffleTypeChange(ShuffleType.SELECTIVE) }
+                )
+
+                if (shuffleType == ShuffleType.SELECTIVE) {
+                    SettingsClickableItem(
+                        icon = Icons.Default.Edit,
+                        title = "Select Apps",
+                        value = "Choose apps to shuffle",
+                        onClick = onOpenSelectiveShuffle
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))

@@ -91,6 +91,7 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
     val isDefault by viewModel.isDefault.collectAsState()
     val shouldUseDarkText by viewModel.shouldUseDarkText.collectAsState()
     val iconShape by viewModel.iconShape.collectAsState()
+    val shuffleType by viewModel.shuffleType.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     
@@ -112,10 +113,13 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
     val homeBlur = if (blurDrawer) (drawerExpansion * 20f).dp else 0.dp
 
     var showSettings by remember { mutableStateOf(false) }
+    var showSelectiveShuffle by remember { mutableStateOf(false) }
 
     BackHandler(enabled = true) {
         if (scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded) {
             scope.launch { scaffoldState.bottomSheetState.partialExpand() }
+        } else if (showSelectiveShuffle) {
+            showSelectiveShuffle = false
         } else if (showSettings) {
             showSettings = false
         }
@@ -124,15 +128,23 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
 
     val widgetType by viewModel.widgetType.collectAsState()
 
-    if (showSettings) {
+    if (showSelectiveShuffle) {
+        SelectiveShuffleScreen(
+            viewModel = viewModel,
+            onClose = { showSelectiveShuffle = false }
+        )
+    } else if (showSettings) {
         SettingsScreen(
             currentMode = mode,
+            shuffleType = shuffleType,
             useWallpaper = useWallpaper,
             blurDrawer = blurDrawer,
             is24Hour = is24Hour,
             widgetType = widgetType,
             iconShape = iconShape,
             onModeChange = { viewModel.setMode(it) },
+            onShuffleTypeChange = { viewModel.setShuffleType(it) },
+            onOpenSelectiveShuffle = { showSelectiveShuffle = true },
             onWallpaperToggle = { viewModel.setUseWallpaper(it) },
             onBlurDrawerToggle = { viewModel.setBlurDrawer(it) },
             onTimeFormatToggle = { viewModel.setIs24Hour(it) },

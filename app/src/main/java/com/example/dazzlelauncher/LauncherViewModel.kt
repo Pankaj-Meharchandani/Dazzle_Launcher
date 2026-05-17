@@ -40,6 +40,10 @@ enum class LauncherMode {
     HOME_ONLY, HOME_AND_DRAWER
 }
 
+enum class ShuffleType {
+    FULL, SELECTIVE
+}
+
 enum class WidgetType {
     SCREEN_TIME, NEXT_ALARM, BATTERY_TEMP, CALENDAR_EVENT
 }
@@ -97,6 +101,16 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         IconShape.valueOf(prefs?.getString("icon_shape", IconShape.HEX.name) ?: IconShape.HEX.name)
     )
     val iconShape: StateFlow<IconShape> = _iconShape.asStateFlow()
+
+    private val _shuffleType = MutableStateFlow(
+        ShuffleType.valueOf(prefs.getString("shuffle_type", ShuffleType.FULL.name)!!)
+    )
+    val shuffleType: StateFlow<ShuffleType> = _shuffleType.asStateFlow()
+
+    private val _selectiveShuffleApps = MutableStateFlow<Set<String>>(
+        prefs.getStringSet("selective_shuffle_apps", emptySet()) ?: emptySet()
+    )
+    val selectiveShuffleApps: StateFlow<Set<String>> = _selectiveShuffleApps.asStateFlow()
 
     private val _batteryInfo = MutableStateFlow("Loading...")
     val batteryInfo: StateFlow<String> = _batteryInfo.asStateFlow()
@@ -331,7 +345,48 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun shuffleHomeApps() {
-        _homeApps.value = _homeApps.value.shuffled()
+        if (_shuffleType.value == ShuffleType.FULL) {
+            _homeApps.value = _homeApps.value.shuffled()
+        } else {
+            val currentHome = _homeApps.value.toMutableList()
+            val selectivePkgNames = _selectiveShuffleApps.value
+            
+            val indicesToShuffle = currentHome.indices.filter { i ->
+                currentHome[i].packageName in selectivePkgNames
+            }
+            
+            if (indicesToShuffle.isNotEmpty()) {
+                val appsToShuffle = indicesToShuffle.map { currentHome[it] }.shuffled()
+                indicesToShuffle.forEachIndexed { index, originalIndex ->
+                    currentHome[originalIndex] = appsToShuffle[index]
+                }
+                _homeApps.value = currentHome
+            }
+        }
+    }
+
+    fun setShuffleType(type: ShuffleType) {
+        _shuffleType.value = type
+        prefs.edit().putString("shuffle_type", type.name).apply()
+    }
+
+    fun toggleSelectiveShuffleApp(app: AppInfo) {
+        val currentSelective = _selectiveShuffleApps.value.toMutableSet()
+        if (currentSelective.contains(app.packageName)) {
+            currentSelective.remove(app.packageName)
+        } else {
+            currentSelective.add(app.packageName)
+            // Ensure it's on home screen
+            val currentHome = _homeApps.value.toMutableList()
+            val dockPackageNames = _dockApps.value.map { it.packageName }
+            if (!currentHome.any { it.packageName == app.packageName } && app.packageName !in dockPackageNames) {
+                currentHome.add(app)
+                _homeApps.value = currentHome
+                prefs.edit().putStringSet("home_apps", currentHome.map { it.packageName }.toSet()).apply()
+            }
+        }
+        _selectiveShuffleApps.value = currentSelective
+        prefs.edit().putStringSet("selective_shuffle_apps", currentSelective).apply()
     }
 
     fun setMode(mode: LauncherMode) {
