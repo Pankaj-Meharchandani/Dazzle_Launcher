@@ -54,28 +54,3 @@ class SquircleShape : Shape {
         )
     }
 }
-
-class FlowerShape : Shape {
-    override fun createOutline(
-        size: Size,
-        layoutDirection: LayoutDirection,
-        density: Density
-    ): Outline {
-        return Outline.Generic(
-            path = Path().apply {
-                val radius = size.width / 2f
-                val centerX = size.width / 2f
-                val centerY = size.height / 2f
-                
-                for (i in 0..7) {
-                    val angle = Math.toRadians(45.0 * i)
-                    val r = if (i % 2 == 0) radius else radius * 0.75f
-                    val x = centerX + r * cos(angle).toFloat()
-                    val y = centerY + r * sin(angle).toFloat()
-                    if (i == 0) moveTo(x, y) else lineTo(x, y)
-                }
-                close()
-            }
-        )
-    }
-}

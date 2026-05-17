@@ -21,6 +21,8 @@ import android.os.Looper
 import android.os.Process
 import android.provider.CalendarContract
 import android.provider.Settings
+import android.graphics.Bitmap
+import android.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
@@ -43,7 +45,7 @@ enum class WidgetType {
 }
 
 enum class IconShape {
-    HEX, SQUIRCLE, ROUND, SQUARE, FLOWER
+    HEX, SQUIRCLE, ROUND, SQUARE
 }
 
 data class AppUsageInfo(
@@ -246,11 +248,14 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             val iconDrawable = info.getIcon(0)
             // Limit icon size for better performance and memory usage
             val bitmap = iconDrawable?.toBitmap(width = 200, height = 200)
+            val dominantColor = bitmap?.let { getDominantColor(it) }
+            
             AppInfo(
                 label = info.label.toString(),
                 packageName = info.applicationInfo.packageName,
                 className = info.name,
-                icon = bitmap?.asImageBitmap()
+                icon = bitmap?.asImageBitmap(),
+                dominantColor = dominantColor
             )
         }.sortedBy { it.label }
         
@@ -258,6 +263,31 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         
         updateDockApps(apps)
         updateHomeApps(apps)
+    }
+
+    private fun getDominantColor(bitmap: Bitmap): Int {
+        var r = 0L
+        var g = 0L
+        var b = 0L
+        var count = 0
+        val width = bitmap.width
+        val height = bitmap.height
+        val pixels = IntArray(width * height)
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+        for (pixel in pixels) {
+            val alpha = (pixel shr 24) and 0xFF
+            if (alpha > 200) { // Consider only mostly opaque pixels
+                r += (pixel shr 16) and 0xFF
+                g += (pixel shr 8) and 0xFF
+                b += pixel and 0xFF
+                count++
+            }
+        }
+        return if (count > 0) {
+            Color.rgb((r / count).toInt(), (g / count).toInt(), (b / count).toInt())
+        } else {
+            Color.TRANSPARENT
+        }
     }
 
     private fun updateDockApps(apps: List<AppInfo>) {

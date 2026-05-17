@@ -152,8 +152,13 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
 
     var showSettings by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded) {
-        scope.launch { scaffoldState.bottomSheetState.partialExpand() }
+    BackHandler(enabled = true) {
+        if (scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded) {
+            scope.launch { scaffoldState.bottomSheetState.partialExpand() }
+        } else if (showSettings) {
+            showSettings = false
+        }
+        // If already on home screen and drawer closed, do nothing (ignore back gesture)
     }
 
     val widgetType by viewModel.widgetType.collectAsState()
@@ -818,7 +823,6 @@ fun SettingsScreen(
                 IconShapeOption("Squircle", IconShape.SQUIRCLE, iconShape == IconShape.SQUIRCLE) { onIconShapeChange(IconShape.SQUIRCLE) }
                 IconShapeOption("Round", IconShape.ROUND, iconShape == IconShape.ROUND) { onIconShapeChange(IconShape.ROUND) }
                 IconShapeOption("Square", IconShape.SQUARE, iconShape == IconShape.SQUARE) { onIconShapeChange(IconShape.SQUARE) }
-                IconShapeOption("Flower", IconShape.FLOWER, iconShape == IconShape.FLOWER) { onIconShapeChange(IconShape.FLOWER) }
             }
 
             Spacer(modifier = Modifier.height(44.dp))
@@ -998,10 +1002,20 @@ fun ScreentimePage(viewModel: LauncherViewModel, shouldUseDarkText: Boolean, use
                                 .padding(vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(modifier = Modifier.size(44.dp).clip(getIconShape(iconShape))) {
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(getIconShape(iconShape))
+                                    .background(usage.appInfo?.dominantColor?.let { Color(it) } ?: contentColor.copy(alpha = 0.1f))
+                            ) {
                                 usage.appInfo?.icon?.let {
-                                    Image(bitmap = it, contentDescription = null, modifier = Modifier.fillMaxSize())
-                                } ?: Box(modifier = Modifier.fillMaxSize().background(contentColor.copy(alpha = 0.1f), getIconShape(iconShape)))
+                                    Image(
+                                        bitmap = it, 
+                                        contentDescription = null, 
+                                        modifier = Modifier.fillMaxSize().padding(6.dp),
+                                        contentScale = ContentScale.Fit
+                                    )
+                                }
                             }
                             Spacer(modifier = Modifier.width(16.dp))
                             Column(modifier = Modifier.weight(1f)) {
@@ -1134,7 +1148,6 @@ fun getIconShape(shapeType: IconShape): Shape {
         IconShape.SQUIRCLE -> SquircleShape()
         IconShape.ROUND -> CircleShape
         IconShape.SQUARE -> RoundedCornerShape(12.dp)
-        IconShape.FLOWER -> FlowerShape()
     }
 }
 
@@ -1161,14 +1174,14 @@ fun AppItem(
             modifier = Modifier
                 .size(60.dp)
                 .clip(shape)
-                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .background(app.dominantColor?.let { Color(it) } ?: MaterialTheme.colorScheme.surfaceVariant)
         ) {
             app.icon?.let {
                 Image(
                     bitmap = it,
                     contentDescription = app.label,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    modifier = Modifier.fillMaxSize().padding(10.dp),
+                    contentScale = ContentScale.Fit
                 )
             }
         }
