@@ -1012,8 +1012,8 @@ fun ScreentimePage(viewModel: LauncherViewModel, shouldUseDarkText: Boolean, use
                                     Image(
                                         bitmap = it, 
                                         contentDescription = null, 
-                                        modifier = Modifier.fillMaxSize().padding(6.dp),
-                                        contentScale = ContentScale.Fit
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
                                     )
                                 }
                             }
@@ -1180,8 +1180,8 @@ fun AppItem(
                 Image(
                     bitmap = it,
                     contentDescription = app.label,
-                    modifier = Modifier.fillMaxSize().padding(10.dp),
-                    contentScale = ContentScale.Fit
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
                 )
             }
         }
