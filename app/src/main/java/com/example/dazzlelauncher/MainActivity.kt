@@ -642,20 +642,23 @@ fun AppDrawerContent(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                placeholder = { Text("Search apps...", color = labelColor.copy(alpha = 0.6f)) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = labelColor.copy(alpha = 0.7f)) },
-                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp, bottom = 24.dp)
+                    .height(56.dp),
+                placeholder = { Text("Search apps...", color = labelColor.copy(alpha = 0.5f)) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = labelColor.copy(alpha = 0.5f)) },
+                shape = CircleShape,
                 singleLine = true,
                 textStyle = TextStyle(color = labelColor),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = labelColor.copy(alpha = 0.1f),
-                    unfocusedContainerColor = labelColor.copy(alpha = 0.1f),
-                    focusedBorderColor = Color.Transparent,
+                    focusedContainerColor = labelColor.copy(alpha = 0.08f),
+                    unfocusedContainerColor = labelColor.copy(alpha = 0.08f),
+                    focusedBorderColor = labelColor.copy(alpha = 0.15f),
                     unfocusedBorderColor = Color.Transparent,
                     cursorColor = labelColor,
                     focusedTextColor = labelColor,
@@ -667,8 +670,8 @@ fun AppDrawerContent(
                 state = gridState,
                 columns = GridCells.Fixed(4),
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 32.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp),
+                contentPadding = PaddingValues(bottom = 40.dp, top = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(32.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(
@@ -678,17 +681,29 @@ fun AppDrawerContent(
                     val isOnHome = homeApps.any { it.packageName == app.packageName } || 
                                    dockApps.any { it.packageName == app.packageName }
                     
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        AppItem(app, onAppClick, labelColor = labelColor, iconShape = iconShape)
-                        Checkbox(
-                            checked = isOnHome,
-                            onCheckedChange = { onToggleHome(app) },
-                            modifier = Modifier.scale(0.7f),
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = MaterialTheme.colorScheme.primary,
-                                uncheckedColor = labelColor.copy(alpha = 0.6f)
-                            )
+                    Box(contentAlignment = Alignment.TopEnd) {
+                        AppItem(
+                            app = app, 
+                            onClick = onAppClick, 
+                            onLongClick = { onToggleHome(app) },
+                            labelColor = labelColor, 
+                            iconShape = iconShape
                         )
+                        
+                        if (isOnHome) {
+                            Box(
+                                modifier = Modifier
+                                    .padding(top = 8.dp, end = 12.dp)
+                                    .size(8.dp)
+                                    .background(MaterialTheme.colorScheme.primary, CircleShape)
+                                    .background(Color.White.copy(alpha = 0.3f), CircleShape)
+                            )
+                        }
+
+                        // Invisible clickable area to toggle home status if needed, 
+                        // but let's make it a long press on AppItem instead or keep it simple.
+                        // For now, let's add a small toggleable area or just use the badge as visual info.
+                        // User can still toggle via long press if we implement that.
                     }
                 }
             }
@@ -844,15 +859,6 @@ fun SettingsScreen(
                 selected = currentMode == LauncherMode.HOME_ONLY,
                 onClick = { onModeChange(LauncherMode.HOME_ONLY) }
             )
-            
-            Spacer(modifier = Modifier.weight(1f))
-            Button(
-                onClick = onClose, 
-                modifier = Modifier.fillMaxWidth().navigationBarsPadding(), 
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Back to Home")
-            }
         }
     }
 }
