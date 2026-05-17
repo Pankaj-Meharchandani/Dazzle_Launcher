@@ -874,14 +874,12 @@ fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) 
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
+            modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
         )
-        ElevatedCard(
+        Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            )
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
         ) {
             Column(
                 modifier = Modifier.padding(8.dp),
@@ -990,9 +988,8 @@ fun SettingsClickableItem(
 fun ModeOption(title: String, description: String, selected: Boolean, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
-        color = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f) else Color.Transparent,
-        shape = RoundedCornerShape(16.dp),
-        border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
+        color = Color.Transparent,
+        shape = RoundedCornerShape(16.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -1003,12 +1000,12 @@ fun ModeOption(title: String, description: String, selected: Boolean, onClick: (
                     title, 
                     style = MaterialTheme.typography.titleMedium, 
                     fontWeight = FontWeight.Bold,
-                    color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                    color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     description, 
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             RadioButton(
