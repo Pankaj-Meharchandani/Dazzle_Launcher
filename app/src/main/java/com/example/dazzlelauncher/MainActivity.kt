@@ -37,6 +37,8 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -736,129 +738,230 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .padding(24.dp)
+                .padding(horizontal = 20.dp)
+                .verticalScroll(rememberScrollState())
         ) {
+            Spacer(modifier = Modifier.height(16.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = onClose, modifier = Modifier.offset(x = (-12).dp)) {
+                IconButton(onClick = onClose) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                 }
-                Text("Settings", style = MaterialTheme.typography.displaySmall)
+                Text(
+                    "Settings", 
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
             }
             
-            Spacer(modifier = Modifier.height(44.dp))
+            Spacer(modifier = Modifier.height(32.dp))
             
-            Text("Appearance", style = MaterialTheme.typography.titleLarge)
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text("Show System Wallpaper", style = MaterialTheme.typography.titleMedium)
-                    Text("Use your home screen background", style = MaterialTheme.typography.bodySmall)
-                }
-                Switch(checked = useWallpaper, onCheckedChange = onWallpaperToggle)
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text("Frosted App Drawer", style = MaterialTheme.typography.titleMedium)
-                    Text("Blurred wallpaper in drawer", style = MaterialTheme.typography.bodySmall)
-                }
-                Switch(checked = blurDrawer, onCheckedChange = onBlurDrawerToggle)
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text("24-Hour Format", style = MaterialTheme.typography.titleMedium)
-                    Text("Switch between 12h and 24h clock", style = MaterialTheme.typography.bodySmall)
-                }
-                Switch(checked = is24Hour, onCheckedChange = onTimeFormatToggle)
-            }
-
-            var showWidgetSelector by remember { mutableStateOf(false) }
-            
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-                    .clickable { showWidgetSelector = true },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text("Widget Content", style = MaterialTheme.typography.titleMedium)
-                    val widgetLabel = when(widgetType) {
-                        WidgetType.SCREEN_TIME -> "Screen Time"
-                        WidgetType.NEXT_ALARM -> "Next Alarm"
-                        WidgetType.BATTERY_TEMP -> "Battery & Temperature"
-                        WidgetType.CALENDAR_EVENT -> "Calendar Event"
-                    }
-                    Text(widgetLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-                }
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
-            }
-
-            if (showWidgetSelector) {
-                WidgetSelectorDialog(
-                    selectedType = widgetType,
-                    onTypeSelected = { 
-                        onWidgetTypeChange(it)
-                        showWidgetSelector = false 
-                    },
-                    onDismiss = { showWidgetSelector = false }
+            SettingsSection(title = "Appearance") {
+                SettingsToggleItem(
+                    icon = Icons.Default.Wallpaper,
+                    title = "System Wallpaper",
+                    description = "Use your device's current wallpaper",
+                    checked = useWallpaper,
+                    onCheckedChange = onWallpaperToggle
+                )
+                
+                SettingsToggleItem(
+                    icon = Icons.Default.BlurOn,
+                    title = "Frosted Glass Effect",
+                    description = "Blurred background in app drawer",
+                    checked = blurDrawer,
+                    onCheckedChange = onBlurDrawerToggle
+                )
+                
+                SettingsToggleItem(
+                    icon = Icons.Default.Schedule,
+                    title = "24-Hour Clock",
+                    description = "Switch between 12h and 24h format",
+                    checked = is24Hour,
+                    onCheckedChange = onTimeFormatToggle
                 )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
-            Text("Icon Shape", style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(12.dp))
             
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                IconShapeOption("Hex", IconShape.HEX, iconShape == IconShape.HEX) { onIconShapeChange(IconShape.HEX) }
-                IconShapeOption("Squircle", IconShape.SQUIRCLE, iconShape == IconShape.SQUIRCLE) { onIconShapeChange(IconShape.SQUIRCLE) }
-                IconShapeOption("Round", IconShape.ROUND, iconShape == IconShape.ROUND) { onIconShapeChange(IconShape.ROUND) }
-                IconShapeOption("Square", IconShape.SQUARE, iconShape == IconShape.SQUARE) { onIconShapeChange(IconShape.SQUARE) }
+            SettingsSection(title = "Customization") {
+                var showWidgetSelector by remember { mutableStateOf(false) }
+                val widgetLabel = when(widgetType) {
+                    WidgetType.SCREEN_TIME -> "Screen Time"
+                    WidgetType.NEXT_ALARM -> "Next Alarm"
+                    WidgetType.BATTERY_TEMP -> "Battery & Temperature"
+                    WidgetType.CALENDAR_EVENT -> "Calendar Event"
+                }
+
+                SettingsClickableItem(
+                    icon = Icons.Default.Widgets,
+                    title = "Home Widget",
+                    value = widgetLabel,
+                    onClick = { showWidgetSelector = true }
+                )
+
+                if (showWidgetSelector) {
+                    WidgetSelectorDialog(
+                        selectedType = widgetType,
+                        onTypeSelected = { 
+                            onWidgetTypeChange(it)
+                            showWidgetSelector = false 
+                        },
+                        onDismiss = { showWidgetSelector = false }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    "Icon Shape", 
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    IconShapeOption("Hex", IconShape.HEX, iconShape == IconShape.HEX) { onIconShapeChange(IconShape.HEX) }
+                    IconShapeOption("Squircle", IconShape.SQUIRCLE, iconShape == IconShape.SQUIRCLE) { onIconShapeChange(IconShape.SQUIRCLE) }
+                    IconShapeOption("Round", IconShape.ROUND, iconShape == IconShape.ROUND) { onIconShapeChange(IconShape.ROUND) }
+                    IconShapeOption("Square", IconShape.SQUARE, iconShape == IconShape.SQUARE) { onIconShapeChange(IconShape.SQUARE) }
+                    IconShapeOption("Octagon", IconShape.OCTAGON, iconShape == IconShape.OCTAGON) { onIconShapeChange(IconShape.OCTAGON) }
+                }
             }
 
-            Spacer(modifier = Modifier.height(44.dp))
-            Text("Launcher Mode", style = MaterialTheme.typography.titleLarge)
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
             
-            ModeOption(
-                title = "Home & App Drawer",
-                description = "Classic Android feel with a swipe-up drawer",
-                selected = currentMode == LauncherMode.HOME_AND_DRAWER,
-                onClick = { onModeChange(LauncherMode.HOME_AND_DRAWER) }
+            SettingsSection(title = "Launcher Mode") {
+                ModeOption(
+                    title = "Classic",
+                    description = "Home screen & App Drawer",
+                    selected = currentMode == LauncherMode.HOME_AND_DRAWER,
+                    onClick = { onModeChange(LauncherMode.HOME_AND_DRAWER) }
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                ModeOption(
+                    title = "Minimal",
+                    description = "All apps on home screen",
+                    selected = currentMode == LauncherMode.HOME_ONLY,
+                    onClick = { onModeChange(LauncherMode.HOME_ONLY) }
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(48.dp))
+        }
+    }
+}
+
+@Composable
+fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
+        )
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
             )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            ModeOption(
-                title = "Home Only",
-                description = "All apps on your home screen pages",
-                selected = currentMode == LauncherMode.HOME_ONLY,
-                onClick = { onModeChange(LauncherMode.HOME_ONLY) }
+        ) {
+            Column(
+                modifier = Modifier.padding(8.dp),
+                content = content
             )
         }
+    }
+}
+
+@Composable
+fun SettingsToggleItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { onCheckedChange(!checked) }
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            modifier = Modifier.size(40.dp),
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+            shape = CircleShape
+        ) {
+            Icon(
+                icon, 
+                contentDescription = null, 
+                modifier = Modifier.padding(8.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+        Column(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(
+            checked = checked, 
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = MaterialTheme.colorScheme.primary
+            )
+        )
+    }
+}
+
+@Composable
+fun SettingsClickableItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    value: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { onClick() }
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            modifier = Modifier.size(40.dp),
+            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f),
+            shape = CircleShape
+        ) {
+            Icon(
+                icon, 
+                contentDescription = null, 
+                modifier = Modifier.padding(8.dp),
+                tint = MaterialTheme.colorScheme.secondary
+            )
+        }
+        Column(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+        }
+        Icon(
+            Icons.AutoMirrored.Filled.KeyboardArrowRight, 
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -866,23 +969,39 @@ fun SettingsScreen(
 fun ModeOption(title: String, description: String, selected: Boolean, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
-        color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(16.dp)
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f) else Color.Transparent,
+        shape = RoundedCornerShape(16.dp),
+        border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(description, style = MaterialTheme.typography.bodySmall)
+            Column(modifier = Modifier.weight(1f).padding(start = 4.dp)) {
+                Text(
+                    title, 
+                    style = MaterialTheme.typography.titleMedium, 
+                    fontWeight = FontWeight.Bold,
+                    color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    description, 
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-            RadioButton(selected = selected, onClick = null)
+            RadioButton(
+                selected = selected, 
+                onClick = null,
+                colors = RadioButtonDefaults.colors(
+                    selectedColor = MaterialTheme.colorScheme.primary
+                )
+            )
         }
     }
 }
 
-private val HexShape = HexagonShape() // This can be removed if not used elsewhere
+
 
 @Composable
 fun ScreentimePage(viewModel: LauncherViewModel, shouldUseDarkText: Boolean, useWallpaper: Boolean, iconShape: IconShape) {
@@ -1153,6 +1272,7 @@ fun getIconShape(shapeType: IconShape): Shape {
         IconShape.SQUIRCLE -> SquircleShape()
         IconShape.ROUND -> CircleShape
         IconShape.SQUARE -> RoundedCornerShape(12.dp)
+        IconShape.OCTAGON -> OctagonShape()
     }
 }
 

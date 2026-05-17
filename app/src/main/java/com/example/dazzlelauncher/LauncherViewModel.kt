@@ -45,7 +45,7 @@ enum class WidgetType {
 }
 
 enum class IconShape {
-    HEX, SQUIRCLE, ROUND, SQUARE
+    HEX, SQUIRCLE, ROUND, SQUARE, OCTAGON
 }
 
 data class AppUsageInfo(

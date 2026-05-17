@@ -54,3 +54,26 @@ class SquircleShape : Shape {
         )
     }
 }
+
+class OctagonShape : Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
+        return Outline.Generic(
+            path = Path().apply {
+                val radius = size.width / 2f
+                val centerX = size.width / 2f
+                val centerY = size.height / 2f
+                for (i in 0..7) {
+                    val angle = Math.toRadians(45.0 * i + 22.5)
+                    val x = centerX + radius * cos(angle).toFloat()
+                    val y = centerY + radius * sin(angle).toFloat()
+                    if (i == 0) moveTo(x, y) else lineTo(x, y)
+                }
+                close()
+            }
+        )
+    }
+}
