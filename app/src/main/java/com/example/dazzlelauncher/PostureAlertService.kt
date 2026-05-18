@@ -26,6 +26,12 @@ class PostureAlertService : Service(), SensorEventListener {
     private var badAngleStartTime: Long = 0
     private var lastAlertTime: Long = 0
     
+    // Table detection state
+    private var lastPitch = 0f
+    private var lastRoll = 0f
+    private var stabilityCount = 0
+    private var isOnTable = false
+    
     // Settings
     private var enabled = true
     private var thresholdAngle = 45f
@@ -102,14 +108,32 @@ class PostureAlertService : Service(), SensorEventListener {
             SensorManager.getOrientation(rotationMatrix, orientation)
 
             val pitchRadians = orientation[1]
+            val rollRadians = orientation[2]
+            
             val pitchDegrees = Math.toDegrees((-pitchRadians).toDouble()).toFloat()
+            val rollDegrees = Math.toDegrees(rollRadians.toDouble()).toFloat()
+
+            // Detect if on table: Device is flat (pitch/roll near 0) and stable (not moving)
+            val isFlat = Math.abs(pitchDegrees) < 10f && Math.abs(rollDegrees) < 10f
+            val isStable = Math.abs(pitchDegrees - lastPitch) < 0.1f && Math.abs(rollDegrees - lastRoll) < 0.1f
+            
+            if (isFlat && isStable) {
+                if (stabilityCount < 20) stabilityCount++ 
+            } else {
+                stabilityCount = 0
+            }
+            
+            isOnTable = stabilityCount >= 10 // Stable for ~2 seconds
+            
+            lastPitch = pitchDegrees
+            lastRoll = rollDegrees
 
             checkPosture(pitchDegrees)
         }
     }
 
     private fun checkPosture(pitchDegrees: Float) {
-        if (!isInQuietHours() && !isDuringCall() && !isFullScreen()) {
+        if (!isInQuietHours() && !isDuringCall() && !isFullScreen() && !isOnTable) {
             if (pitchDegrees < thresholdAngle) {
                 if (!isBadAngle) {
                     isBadAngle = true
