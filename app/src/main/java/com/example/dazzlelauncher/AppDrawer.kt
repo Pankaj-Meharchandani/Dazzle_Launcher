@@ -42,9 +42,6 @@ fun AppDrawerContent(
         if (!isExpanded) {
             gridState.scrollToItem(0)
             searchQuery = ""
-        } else {
-            // Auto-focus search when drawer opens
-            focusRequester.requestFocus()
         }
     }
 
