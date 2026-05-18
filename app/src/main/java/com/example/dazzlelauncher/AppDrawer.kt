@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
@@ -37,14 +38,13 @@ fun AppDrawerContent(
     var searchQuery by remember { mutableStateOf("") }
     val gridState = rememberLazyGridState()
     val focusRequester = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
 
     LaunchedEffect(isExpanded) {
         if (!isExpanded) {
             gridState.scrollToItem(0)
             searchQuery = ""
-        } else {
-            // Auto-focus search when drawer opens
-            focusRequester.requestFocus()
+            focusManager.clearFocus()
         }
     }
 
@@ -69,6 +69,7 @@ fun AppDrawerContent(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
+                enabled = isExpanded,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 16.dp, bottom = 12.dp)
