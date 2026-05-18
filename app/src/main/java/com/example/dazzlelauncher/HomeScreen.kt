@@ -64,6 +64,7 @@ fun HomeScreen(
             viewModel.fetchNextAlarm()
             viewModel.fetchCalendarEvent()
             viewModel.fetchUsageStats()
+            viewModel.loadUnlockCount()
             val seconds = Calendar.getInstance().get(Calendar.SECOND)
             kotlinx.coroutines.delay((60 - seconds) * 1000L)
         }
@@ -77,6 +78,7 @@ fun HomeScreen(
     val batteryInfo by viewModel.batteryInfo.collectAsState()
     val nextAlarm by viewModel.nextAlarm.collectAsState()
     val calendarEvent by viewModel.calendarEvent.collectAsState()
+    val unlockCount by viewModel.unlockCount.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.fetchUsageStats()
@@ -185,6 +187,7 @@ fun HomeScreen(
                                 WidgetType.BATTERY_TEMP -> batteryInfo
                                 WidgetType.NEXT_ALARM -> nextAlarm
                                 WidgetType.CALENDAR_EVENT -> calendarEvent
+                                WidgetType.UNLOCKS -> "$unlockCount Unlocks Today"
                             },
                             style = MaterialTheme.typography.titleMedium,
                             color = if (shouldUseDarkText) Color.Black.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.7f)

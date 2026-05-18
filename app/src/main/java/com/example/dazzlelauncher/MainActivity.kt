@@ -41,8 +41,9 @@ class MainActivity : ComponentActivity() {
 
     private val unlockReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == Intent.ACTION_SCREEN_OFF) {
-                viewModel.shuffleHomeApps()
+            when (intent?.action) {
+                Intent.ACTION_SCREEN_OFF -> viewModel.shuffleHomeApps()
+                Intent.ACTION_USER_PRESENT -> viewModel.incrementUnlockCount()
             }
         }
     }
@@ -57,6 +58,7 @@ class MainActivity : ComponentActivity() {
 
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_USER_PRESENT)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(unlockReceiver, filter, RECEIVER_EXPORTED)

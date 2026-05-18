@@ -45,7 +45,7 @@ enum class ShuffleType {
 }
 
 enum class WidgetType {
-    SCREEN_TIME, NEXT_ALARM, BATTERY_TEMP, CALENDAR_EVENT
+    SCREEN_TIME, NEXT_ALARM, BATTERY_TEMP, CALENDAR_EVENT, UNLOCKS
 }
 
 enum class IconShape {
@@ -121,6 +121,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private val _calendarEvent = MutableStateFlow("No events")
     val calendarEvent: StateFlow<String> = _calendarEvent.asStateFlow()
 
+    private val _unlockCount = MutableStateFlow(0)
+    val unlockCount: StateFlow<Int> = _unlockCount.asStateFlow()
+
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             intent?.let {
@@ -165,6 +168,35 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         fetchNextAlarm()
         fetchCalendarEvent()
         updatePostureService(getApplication())
+        loadUnlockCount()
+    }
+
+    fun loadUnlockCount() {
+        val today = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(java.util.Date())
+        val lastUnlockDate = prefs.getString("last_unlock_date", "")
+        if (today != lastUnlockDate) {
+            _unlockCount.value = 0
+            prefs.edit().putInt("unlock_count", 0).putString("last_unlock_date", today).apply()
+        } else {
+            _unlockCount.value = prefs.getInt("unlock_count", 0)
+        }
+    }
+
+    fun incrementUnlockCount() {
+        val today = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(java.util.Date())
+        val lastUnlockDate = prefs.getString("last_unlock_date", "")
+        
+        val count = if (today == lastUnlockDate) {
+            prefs.getInt("unlock_count", 0) + 1
+        } else {
+            1
+        }
+        
+        _unlockCount.value = count
+        prefs.edit()
+            .putInt("unlock_count", count)
+            .putString("last_unlock_date", today)
+            .apply()
     }
 
     fun setWidgetType(type: WidgetType) {

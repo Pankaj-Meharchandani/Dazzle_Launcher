@@ -182,6 +182,7 @@ fun SettingsScreen(
                     WidgetType.NEXT_ALARM -> "Next Alarm"
                     WidgetType.BATTERY_TEMP -> "Battery & Temperature"
                     WidgetType.CALENDAR_EVENT -> "Calendar Event"
+                    WidgetType.UNLOCKS -> "Unlock Counter"
                 }
 
                 SettingsClickableItem(
@@ -493,6 +494,9 @@ fun WidgetSelectorDialog(
                     } else {
                         calendarPermissionLauncher.launch(Manifest.permission.READ_CALENDAR)
                     }
+                }
+                WidgetOption("Unlock Counter", selectedType == WidgetType.UNLOCKS) {
+                    onTypeSelected(WidgetType.UNLOCKS)
                 }
             }
         },
