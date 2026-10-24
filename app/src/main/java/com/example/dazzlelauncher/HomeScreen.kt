@@ -1,12 +1,15 @@
 package com.example.dazzlelauncher
 
 import android.content.Intent
+import android.appwidget.AppWidgetHost
+import android.appwidget.AppWidgetManager
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -17,6 +20,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.*
@@ -53,10 +57,19 @@ fun HomeScreen(
     viewModel: LauncherViewModel,
     useWallpaper: Boolean,
     is24Hour: Boolean,
-    iconShape: IconShape
+    iconShape: IconShape,
+    homeWidgets: List<HomeWidget>,
+    widgetHost: AppWidgetHost,
+    widgetManager: AppWidgetManager,
+    onAddWidget: () -> Unit,
+    onReplaceWidget: (Int) -> Unit,
+    onRemoveWidget: (Int) -> Unit,
+    onResizeWidget: (Int, Int, Int) -> Unit,
+    onMoveWidget: (Int, Int) -> Unit
 ) {
     val context = LocalContext.current
     var currentTime by remember { mutableStateOf(Calendar.getInstance()) }
+    var widgetEditMode by remember { mutableStateOf(false) }
     
     LaunchedEffect(Unit) {
         while (true) {
@@ -116,6 +129,11 @@ fun HomeScreen(
                             totalDrag = 0f
                         }
                     )
+                }
+                .pointerInput(widgetEditMode) {
+                    if (widgetEditMode) {
+                        detectTapGestures(onTap = { widgetEditMode = false })
+                    }
                 }
                 .padding(top = 80.dp)
         ) {
@@ -213,25 +231,40 @@ fun HomeScreen(
                     val endIdx = minOf(startIdx + itemsPerPage, apps.size)
                     val pageApps = if (apps.isEmpty()) emptyList() else apps.subList(startIdx, endIdx)
                     
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(4),
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        userScrollEnabled = false,
-                        contentPadding = PaddingValues(bottom = 16.dp)
-                    ) {
-                        items(
-                            items = pageApps,
-                            key = { it.key }
-                        ) { app ->
-                            AppItem(
-                                app = app, 
-                                onClick = onAppClick,
-                                onLongClick = { onToggleDock(app) },
-                                labelColor = if (shouldUseDarkText) Color.Black else Color.White,
-                                iconShape = iconShape
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        if (appPage == 0) {
+                            HomeWidgets(
+                                widgets = homeWidgets,
+                                widgetHost = widgetHost,
+                                widgetManager = widgetManager,
+                                editMode = widgetEditMode,
+                                onEditModeChange = { widgetEditMode = it },
+                                onReplaceWidget = onReplaceWidget,
+                                onRemoveWidget = onRemoveWidget,
+                                onResizeWidget = onResizeWidget,
+                                onMoveWidget = onMoveWidget
                             )
+                        }
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(4),
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            userScrollEnabled = false,
+                            contentPadding = PaddingValues(bottom = 16.dp)
+                        ) {
+                            items(
+                                items = pageApps,
+                                key = { it.key }
+                            ) { app ->
+                                AppItem(
+                                    app = app,
+                                    onClick = onAppClick,
+                                    onLongClick = { onToggleDock(app) },
+                                    labelColor = if (shouldUseDarkText) Color.Black else Color.White,
+                                    iconShape = iconShape
+                                )
+                            }
                         }
                     }
                 }
@@ -274,7 +307,7 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(100.dp),
-                    horizontalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally),
+                    horizontalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(
@@ -311,6 +344,34 @@ fun HomeScreen(
                         }
                         Text(
                             text = "Wallpaper",
+                            fontSize = 11.sp,
+                            color = if (shouldUseDarkText) Color.Black else Color.White,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .clickable { onAddWidget() }
+                            .padding(4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(60.dp)
+                                .clip(getIconShape(iconShape))
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Add widget",
+                                modifier = Modifier.size(32.dp),
+                                tint = if (shouldUseDarkText || !isSystemInDarkTheme()) Color.Black else Color.White
+                            )
+                        }
+                        Text(
+                            text = "Add Widget",
                             fontSize = 11.sp,
                             color = if (shouldUseDarkText) Color.Black else Color.White,
                             modifier = Modifier.padding(top = 4.dp)

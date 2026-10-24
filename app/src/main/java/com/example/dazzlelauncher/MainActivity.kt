@@ -1,6 +1,9 @@
 package com.example.dazzlelauncher
 
 import android.Manifest
+import android.app.Activity
+import android.appwidget.AppWidgetHost
+import android.appwidget.AppWidgetManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -38,6 +41,8 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val viewModel: LauncherViewModel by viewModels()
+    lateinit var appWidgetHost: AppWidgetHost
+    val appWidgetManager by lazy { AppWidgetManager.getInstance(this) }
 
     private val unlockReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -50,6 +55,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        appWidgetHost = AppWidgetHost(this, 0xDA22)
         enableEdgeToEdge()
 
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
@@ -68,9 +74,19 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             DazzleLauncherTheme {
-                LauncherRoot(viewModel)
+                LauncherRoot(viewModel, appWidgetHost, appWidgetManager)
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        appWidgetHost.startListening()
+    }
+
+    override fun onStop() {
+        appWidgetHost.stopListening()
+        super.onStop()
     }
 
     override fun onResume() {
@@ -86,7 +102,11 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LauncherRoot(viewModel: LauncherViewModel) {
+fun LauncherRoot(
+    viewModel: LauncherViewModel,
+    widgetHost: AppWidgetHost,
+    widgetManager: AppWidgetManager
+) {
     val homeApps by viewModel.homeApps.collectAsState()
     val dockApps by viewModel.dockApps.collectAsState()
     val allApps by viewModel.allApps.collectAsState()
@@ -98,6 +118,7 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
     val shouldUseDarkText by viewModel.shouldUseDarkText.collectAsState()
     val iconShape by viewModel.iconShape.collectAsState()
     val shuffleType by viewModel.shuffleType.collectAsState()
+    val homeWidgets by viewModel.homeWidgets.collectAsState()
     val postureAlertEnabled by viewModel.postureAlertEnabled.collectAsState()
     val postureSensitivity by viewModel.postureSensitivity.collectAsState()
     val postureDuration by viewModel.postureDuration.collectAsState()
@@ -146,6 +167,59 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
 
     var showSettings by remember { mutableStateOf(false) }
     var showSelectiveShuffle by remember { mutableStateOf(false) }
+    var pendingWidgetId by remember { mutableIntStateOf(AppWidgetManager.INVALID_APPWIDGET_ID) }
+    var replacingWidgetId by remember { mutableIntStateOf(AppWidgetManager.INVALID_APPWIDGET_ID) }
+
+    fun commitWidget() {
+        if (replacingWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+            widgetHost.deleteAppWidgetId(replacingWidgetId)
+            viewModel.removeHomeWidget(replacingWidgetId)
+        }
+        viewModel.addHomeWidget(pendingWidgetId)
+        pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+        replacingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+    }
+
+    val widgetConfigLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK && pendingWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+            commitWidget()
+        } else if (pendingWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+            widgetHost.deleteAppWidgetId(pendingWidgetId)
+            pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+            replacingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+        }
+    }
+
+    val widgetPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val selectedId = result.data?.getIntExtra(
+            AppWidgetManager.EXTRA_APPWIDGET_ID,
+            pendingWidgetId
+        ) ?: pendingWidgetId
+        if (result.resultCode != Activity.RESULT_OK || selectedId == AppWidgetManager.INVALID_APPWIDGET_ID) {
+            if (pendingWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                widgetHost.deleteAppWidgetId(pendingWidgetId)
+            }
+            pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+            replacingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+            return@rememberLauncherForActivityResult
+        }
+
+        pendingWidgetId = selectedId
+        val info = widgetManager.getAppWidgetInfo(selectedId)
+        if (info?.configure != null) {
+            widgetConfigLauncher.launch(
+                Intent(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE)
+                    .setComponent(info.configure)
+                    .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, selectedId)
+            )
+        } else {
+            commitWidget()
+        }
+    }
 
     BackHandler(enabled = true) {
         if (scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded) {
@@ -268,7 +342,38 @@ fun LauncherRoot(viewModel: LauncherViewModel) {
                     viewModel = viewModel,
                     useWallpaper = useWallpaper,
                     is24Hour = is24Hour,
-                    iconShape = iconShape
+                    iconShape = iconShape,
+                    homeWidgets = homeWidgets,
+                    widgetHost = widgetHost,
+                    widgetManager = widgetManager,
+                    onAddWidget = {
+                        val appWidgetId = widgetHost.allocateAppWidgetId()
+                        replacingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+                        pendingWidgetId = appWidgetId
+                        widgetPickerLauncher.launch(
+                            Intent(AppWidgetManager.ACTION_APPWIDGET_PICK)
+                                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                        )
+                    },
+                    onReplaceWidget = { oldWidgetId ->
+                        val appWidgetId = widgetHost.allocateAppWidgetId()
+                        replacingWidgetId = oldWidgetId
+                        pendingWidgetId = appWidgetId
+                        widgetPickerLauncher.launch(
+                            Intent(AppWidgetManager.ACTION_APPWIDGET_PICK)
+                                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                        )
+                    },
+                    onRemoveWidget = { appWidgetId ->
+                        widgetHost.deleteAppWidgetId(appWidgetId)
+                        viewModel.removeHomeWidget(appWidgetId)
+                    },
+                    onResizeWidget = { appWidgetId, deltaX, deltaY ->
+                        viewModel.resizeHomeWidget(appWidgetId, deltaX, deltaY)
+                    },
+                    onMoveWidget = { appWidgetId, direction ->
+                        viewModel.moveHomeWidget(appWidgetId, direction)
+                    }
                 )
             }
         }

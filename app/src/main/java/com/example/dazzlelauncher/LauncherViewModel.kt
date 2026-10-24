@@ -58,6 +58,12 @@ data class AppUsageInfo(
     val usageTime: Long
 )
 
+data class HomeWidget(
+    val appWidgetId: Int,
+    val spanX: Int = 4,
+    val spanY: Int = 1
+)
+
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
     private val packageManager = application.packageManager
     private val prefs = application.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
@@ -96,6 +102,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         WidgetType.valueOf(prefs?.getString("widget_type", WidgetType.SCREEN_TIME.name) ?: WidgetType.SCREEN_TIME.name)
     )
     val widgetType: StateFlow<WidgetType> = _widgetType.asStateFlow()
+
+    private val _homeWidgets = MutableStateFlow(loadHomeWidgets())
+    val homeWidgets: StateFlow<List<HomeWidget>> = _homeWidgets.asStateFlow()
 
     private val _iconShape = MutableStateFlow(
         IconShape.valueOf(prefs?.getString("icon_shape", IconShape.SQUARE.name) ?: IconShape.SQUARE.name)
@@ -207,6 +216,59 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             WidgetType.CALENDAR_EVENT -> fetchCalendarEvent()
             else -> {}
         }
+    }
+
+    fun addHomeWidget(appWidgetId: Int) {
+        if (_homeWidgets.value.any { it.appWidgetId == appWidgetId }) return
+        updateHomeWidgets(_homeWidgets.value + HomeWidget(appWidgetId))
+    }
+
+    fun removeHomeWidget(appWidgetId: Int) {
+        updateHomeWidgets(_homeWidgets.value.filterNot { it.appWidgetId == appWidgetId })
+    }
+
+    fun resizeHomeWidget(appWidgetId: Int, deltaX: Int = 0, deltaY: Int = 0) {
+        updateHomeWidgets(_homeWidgets.value.map { widget ->
+            if (widget.appWidgetId == appWidgetId) {
+                widget.copy(
+                    spanX = (widget.spanX + deltaX).coerceIn(1, 4),
+                    spanY = (widget.spanY + deltaY).coerceIn(1, 3)
+                )
+            } else widget
+        })
+    }
+
+    fun moveHomeWidget(appWidgetId: Int, direction: Int) {
+        val widgets = _homeWidgets.value.toMutableList()
+        val index = widgets.indexOfFirst { it.appWidgetId == appWidgetId }
+        val target = index + direction
+        if (index < 0 || target !in widgets.indices) return
+        val widget = widgets.removeAt(index)
+        widgets.add(target, widget)
+        updateHomeWidgets(widgets)
+    }
+
+    private fun loadHomeWidgets(): List<HomeWidget> {
+        return prefs.getString("home_widgets", "")
+            .orEmpty()
+            .split("|")
+            .mapNotNull { encoded ->
+                val parts = encoded.split(":")
+                if (parts.size != 3) return@mapNotNull null
+                HomeWidget(
+                    appWidgetId = parts[0].toIntOrNull() ?: return@mapNotNull null,
+                    spanX = (parts[1].toIntOrNull() ?: 4).coerceIn(1, 4),
+                    spanY = (parts[2].toIntOrNull() ?: 1).coerceIn(1, 3)
+                )
+            }
+    }
+
+    private fun updateHomeWidgets(widgets: List<HomeWidget>) {
+        _homeWidgets.value = widgets
+        prefs.edit().putString(
+            "home_widgets",
+            widgets.joinToString("|") { "${it.appWidgetId}:${it.spanX}:${it.spanY}" }
+        ).apply()
     }
 
     fun setIconShape(shape: IconShape) {
