@@ -40,9 +40,15 @@ import com.example.dazzlelauncher.ui.theme.DazzleLauncherTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        private const val WIDGET_CONFIGURE_REQUEST = 0xDA23
+    }
+
     private val viewModel: LauncherViewModel by viewModels()
     lateinit var appWidgetHost: AppWidgetHost
     val appWidgetManager by lazy { AppWidgetManager.getInstance(this) }
+    private var configuringWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+    private var replacingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
 
     private val unlockReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -74,9 +80,56 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             DazzleLauncherTheme {
-                LauncherRoot(viewModel, appWidgetHost, appWidgetManager)
+                LauncherRoot(
+                    viewModel = viewModel,
+                    widgetHost = appWidgetHost,
+                    widgetManager = appWidgetManager,
+                    onConfigureWidget = ::configureWidget
+                )
             }
         }
+    }
+
+    private fun configureWidget(appWidgetId: Int, oldWidgetId: Int) {
+        configuringWidgetId = appWidgetId
+        replacingWidgetId = oldWidgetId
+        try {
+            appWidgetHost.startAppWidgetConfigureActivityForResult(
+                this,
+                appWidgetId,
+                0,
+                WIDGET_CONFIGURE_REQUEST,
+                null
+            )
+        } catch (_: SecurityException) {
+            finishWidgetConfiguration(success = false)
+        } catch (_: RuntimeException) {
+            finishWidgetConfiguration(success = false)
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == WIDGET_CONFIGURE_REQUEST) {
+            finishWidgetConfiguration(resultCode == Activity.RESULT_OK)
+        }
+    }
+
+    private fun finishWidgetConfiguration(success: Boolean) {
+        if (configuringWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) return
+
+        if (success) {
+            if (replacingWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                appWidgetHost.deleteAppWidgetId(replacingWidgetId)
+                viewModel.removeHomeWidget(replacingWidgetId)
+            }
+            viewModel.addHomeWidget(configuringWidgetId)
+        } else {
+            appWidgetHost.deleteAppWidgetId(configuringWidgetId)
+        }
+
+        configuringWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+        replacingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
     }
 
     override fun onStart() {
@@ -105,7 +158,8 @@ class MainActivity : ComponentActivity() {
 fun LauncherRoot(
     viewModel: LauncherViewModel,
     widgetHost: AppWidgetHost,
-    widgetManager: AppWidgetManager
+    widgetManager: AppWidgetManager,
+    onConfigureWidget: (Int, Int) -> Unit
 ) {
     val homeApps by viewModel.homeApps.collectAsState()
     val dockApps by viewModel.dockApps.collectAsState()
@@ -180,18 +234,6 @@ fun LauncherRoot(
         replacingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
     }
 
-    val widgetConfigLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK && pendingWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
-            commitWidget()
-        } else if (pendingWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
-            widgetHost.deleteAppWidgetId(pendingWidgetId)
-            pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
-            replacingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
-        }
-    }
-
     val widgetPickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -211,11 +253,9 @@ fun LauncherRoot(
         pendingWidgetId = selectedId
         val info = widgetManager.getAppWidgetInfo(selectedId)
         if (info?.configure != null) {
-            widgetConfigLauncher.launch(
-                Intent(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE)
-                    .setComponent(info.configure)
-                    .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, selectedId)
-            )
+            onConfigureWidget(selectedId, replacingWidgetId)
+            pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+            replacingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
         } else {
             commitWidget()
         }
