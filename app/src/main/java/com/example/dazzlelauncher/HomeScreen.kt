@@ -113,12 +113,9 @@ fun HomeScreen(
         val itemsPerPage = rows * 4
         // Widgets consume the same row units as apps on the first app page.
         // Apps that no longer fit continue on the next page.
-        // Convert the widget stack plus its 12dp app gap into the smallest
-        // number of grid rows it actually occupies. Do not reserve a whole
-        // extra row for a small spacing value.
-        val widgetPixels = if (homeWidgets.isEmpty()) 0 else
-            homeWidgets.sumOf { it.spanY * 105 } + homeWidgets.size * 12
-        val widgetRows = (widgetPixels + 104) / 105
+        // A widget consumes exactly its configured grid rows. The 12dp gap
+        // is visual spacing and must not steal an additional app row.
+        val widgetRows = homeWidgets.sumOf { it.spanY }
         val firstPageRows = (rows - widgetRows).coerceAtLeast(0)
         val firstPageItems = firstPageRows * 4
         val remainingApps = (apps.size - firstPageItems).coerceAtLeast(0)
