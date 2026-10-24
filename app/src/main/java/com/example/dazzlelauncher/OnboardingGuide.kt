@@ -61,8 +61,8 @@ fun OnboardingGuide(
     var page by remember { mutableIntStateOf(0) }
     val pages = listOf(
         "Welcome to Dazzle" to "A calmer launcher designed to help you spend less time on your phone and more time on what matters.",
-        "Make distraction less automatic" to "Dazzle changes the usual home-screen routine, helping you pause before opening distracting apps and spend less time scrolling.",
-        "Keep your essentials within reach" to "Long-press an app in the drawer to place it on Home. From Home, long-press an app to move it to the dock. Dock apps stay fixed while Home apps can shuffle.",
+        "Make distraction less automatic" to "Long-press an app in the drawer to add or remove it from Home. Home apps can shuffle when Dazzle reorganizes them, helping you pause before opening distracting apps.",
+        "Keep your essentials in the dock" to "The dock is your fixed row for everyday essentials. Long-press any app on Home to add it to the dock. Dock apps stay in place and never shuffle.",
         "Make it yours" to "Choose an icon shape now. You can change this, your wallpaper, and other details later in Settings.",
         "Ready to reduce screen time?" to "Set Dazzle as your default launcher to make these calmer choices part of your everyday routine."
     )
