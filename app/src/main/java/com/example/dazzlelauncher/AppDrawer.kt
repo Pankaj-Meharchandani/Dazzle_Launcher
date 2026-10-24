@@ -31,6 +31,7 @@ fun AppDrawerContent(
     onAppClick: (String) -> Unit,
     onToggleHome: (AppInfo) -> Unit,
     shouldUseDarkText: Boolean,
+    useWallpaper: Boolean,
     blurDrawer: Boolean,
     iconShape: IconShape,
     launcherMode: LauncherMode
@@ -58,7 +59,7 @@ fun AppDrawerContent(
         }
     }
 
-    val labelColor = if (blurDrawer) {
+    val labelColor = if (blurDrawer && useWallpaper) {
         if (shouldUseDarkText) Color.Black else Color.White
     } else {
         if (isSystemInDarkTheme()) Color.White else MaterialTheme.colorScheme.onSurface

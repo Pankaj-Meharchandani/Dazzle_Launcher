@@ -24,6 +24,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -179,6 +180,16 @@ fun LauncherRoot(
     val postureQuietStart by viewModel.postureQuietStart.collectAsState()
     val postureQuietEnd by viewModel.postureQuietEnd.collectAsState()
     val context = LocalContext.current
+    val effectiveDarkText = shouldUseDarkText || (!useWallpaper && !isSystemInDarkTheme())
+
+    SideEffect {
+        (context as? Activity)?.let { activity ->
+            WindowCompat.getInsetsController(activity.window, activity.window.decorView).apply {
+                isAppearanceLightStatusBars = effectiveDarkText
+                isAppearanceLightNavigationBars = effectiveDarkText
+            }
+        }
+    }
     val scope = rememberCoroutineScope()
     var showOnboarding by remember {
         mutableStateOf(
@@ -341,6 +352,7 @@ fun LauncherRoot(
                         },
                         onToggleHome = { viewModel.toggleHomeApp(it) },
                         shouldUseDarkText = shouldUseDarkText,
+                        useWallpaper = useWallpaper,
                         blurDrawer = blurDrawer,
                         iconShape = iconShape,
                         launcherMode = mode

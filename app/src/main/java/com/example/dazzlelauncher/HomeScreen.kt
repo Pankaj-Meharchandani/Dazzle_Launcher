@@ -94,6 +94,8 @@ fun HomeScreen(
     val nextAlarm by viewModel.nextAlarm.collectAsState()
     val calendarEvent by viewModel.calendarEvent.collectAsState()
     val unlockCount by viewModel.unlockCount.collectAsState()
+    // A disabled wallpaper exposes the theme background directly.
+    val effectiveDarkText = shouldUseDarkText || (!useWallpaper && !isSystemInDarkTheme())
 
     LaunchedEffect(Unit) {
         viewModel.fetchUsageStats()
@@ -187,7 +189,7 @@ fun HomeScreen(
                     text = titleText,
                     style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold),
                     modifier = Modifier.padding(horizontal = 24.dp),
-                    color = if (shouldUseDarkText) Color.Black else MaterialTheme.colorScheme.primary,
+                    color = if (effectiveDarkText) Color.Black else MaterialTheme.colorScheme.primary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -206,14 +208,14 @@ fun HomeScreen(
                                 fontWeight = FontWeight.Normal,
                                 fontSize = 56.sp
                             ),
-                            color = if (shouldUseDarkText) Color.Black else Color.White
+                            color = if (effectiveDarkText) Color.Black else Color.White
                         )
                         if (!is24Hour) {
                             Text(
                                 text = amPmFormatter.format(currentTime.time),
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                 modifier = Modifier.padding(bottom = 10.dp, start = 4.dp),
-                                color = if (shouldUseDarkText) Color.Black else Color.White
+                                color = if (effectiveDarkText) Color.Black else Color.White
                             )
                         }
                     }
@@ -222,7 +224,7 @@ fun HomeScreen(
                         Text(
                             text = dateFormatter.format(currentTime.time),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = if (shouldUseDarkText) Color.Black else Color.White
+                            color = if (effectiveDarkText) Color.Black else Color.White
                         )
                         Text(
                             text = when(widgetType) {
@@ -233,7 +235,7 @@ fun HomeScreen(
                                 WidgetType.UNLOCKS -> "$unlockCount Unlocks Today"
                             },
                             style = MaterialTheme.typography.titleMedium,
-                            color = if (shouldUseDarkText) Color.Black.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.7f)
+                            color = if (effectiveDarkText) Color.Black.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.7f)
                         )
                     }
                 }
@@ -249,7 +251,7 @@ fun HomeScreen(
                 beyondViewportPageCount = 1
             ) { page ->
                 if (page == 0) {
-                    ScreentimePage(viewModel = viewModel, shouldUseDarkText = shouldUseDarkText, useWallpaper = useWallpaper, iconShape = iconShape)
+                    ScreentimePage(viewModel = viewModel, shouldUseDarkText = effectiveDarkText, useWallpaper = useWallpaper, iconShape = iconShape)
                 } else {
                     val appPage = page - 1
                     val startIdx = if (appPage == 0) 0 else firstPageItems + (appPage - 1) * itemsPerPage
@@ -290,7 +292,7 @@ fun HomeScreen(
                                     app = app,
                                     onClick = onAppClick,
                                     onLongClick = { onToggleDock(app) },
-                                    labelColor = if (shouldUseDarkText) Color.Black else Color.White,
+                                    labelColor = if (effectiveDarkText) Color.Black else Color.White,
                                     iconShape = iconShape
                                 )
                             }
@@ -307,7 +309,7 @@ fun HomeScreen(
             ) {
                 repeat(pagerState.pageCount) { iteration ->
                     val color = if (pagerState.currentPage == iteration) 
-                        MaterialTheme.colorScheme.primary else (if (shouldUseDarkText) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.4f))
+                        MaterialTheme.colorScheme.primary else (if (effectiveDarkText) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.4f))
                     
                     if (iteration == 0) {
                         Box(
@@ -374,7 +376,7 @@ fun HomeScreen(
                         Text(
                             text = "Wallpaper",
                             fontSize = 11.sp,
-                            color = if (shouldUseDarkText) Color.Black else Color.White,
+                            color = if (effectiveDarkText) Color.Black else Color.White,
                             modifier = Modifier.padding(top = 4.dp)
                         )
                     }
@@ -402,7 +404,7 @@ fun HomeScreen(
                         Text(
                             text = "Add Widget",
                             fontSize = 11.sp,
-                            color = if (shouldUseDarkText) Color.Black else Color.White,
+                            color = if (effectiveDarkText) Color.Black else Color.White,
                             modifier = Modifier.padding(top = 4.dp)
                         )
                     }
@@ -430,7 +432,7 @@ fun HomeScreen(
                         Text(
                             text = "Settings",
                             fontSize = 11.sp,
-                            color = if (shouldUseDarkText) Color.Black else Color.White,
+                            color = if (effectiveDarkText) Color.Black else Color.White,
                             modifier = Modifier.padding(top = 4.dp)
                         )
                     }
