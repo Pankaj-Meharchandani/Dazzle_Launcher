@@ -44,7 +44,7 @@ fun AppItem(
     onLongClick: () -> Unit = {},
     showLabel: Boolean = true,
     labelColor: Color = if (isSystemInDarkTheme()) Color.White else MaterialTheme.colorScheme.onSurface,
-    iconShape: IconShape = IconShape.HEX
+    iconShape: IconShape = IconShape.SQUARE
 ) {
     val shape = getIconShape(iconShape)
     Column(

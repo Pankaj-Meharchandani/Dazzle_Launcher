@@ -98,7 +98,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     val widgetType: StateFlow<WidgetType> = _widgetType.asStateFlow()
 
     private val _iconShape = MutableStateFlow(
-        IconShape.valueOf(prefs?.getString("icon_shape", IconShape.HEX.name) ?: IconShape.HEX.name)
+        IconShape.valueOf(prefs?.getString("icon_shape", IconShape.SQUARE.name) ?: IconShape.SQUARE.name)
     )
     val iconShape: StateFlow<IconShape> = _iconShape.asStateFlow()
 
