@@ -44,11 +44,12 @@ fun AppItem(
     onLongClick: () -> Unit = {},
     showLabel: Boolean = true,
     labelColor: Color = if (isSystemInDarkTheme()) Color.White else MaterialTheme.colorScheme.onSurface,
-    iconShape: IconShape = IconShape.SQUARE
+    iconShape: IconShape = IconShape.SQUARE,
+    modifier: Modifier = Modifier
 ) {
     val shape = getIconShape(iconShape)
     Column(
-        modifier = Modifier
+        modifier = modifier
             .combinedClickable(
                 onClick = { onClick(app.packageName) },
                 onLongClick = onLongClick
