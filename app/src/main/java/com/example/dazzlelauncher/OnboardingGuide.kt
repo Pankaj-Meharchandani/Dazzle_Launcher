@@ -214,7 +214,7 @@ private fun IconShapePreview(
     onShapeChange: (IconShape) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val backgroundColor = if (androidx.compose.foundation.isSystemInDarkTheme()) Color.White else Color.Black
+    val backgroundColor = if (androidx.compose.foundation.isSystemInDarkTheme()) Color.White else Color.Transparent
     val context = LocalContext.current
     val previewIcon = remember(context) {
         ContextCompat.getDrawable(context, R.mipmap.ic_launcher)
