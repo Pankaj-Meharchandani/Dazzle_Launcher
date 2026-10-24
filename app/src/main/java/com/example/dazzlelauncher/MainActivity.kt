@@ -180,6 +180,20 @@ fun LauncherRoot(
     val postureQuietEnd by viewModel.postureQuietEnd.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var showOnboarding by remember {
+        mutableStateOf(
+            !context.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
+                .getBoolean("onboarding_complete", false)
+        )
+    }
+
+    fun completeOnboarding() {
+        context.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("onboarding_complete", true)
+            .apply()
+        showOnboarding = false
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -305,6 +319,10 @@ fun LauncherRoot(
             onPostureSensitivityChange = { viewModel.setPostureSensitivity(it, context) },
             onPostureDurationChange = { viewModel.setPostureDuration(it, context) },
             onPostureQuietHoursChange = { start, end -> viewModel.setPostureQuietHours(start, end, context) },
+            onOpenGuide = {
+                showSettings = false
+                showOnboarding = true
+            },
             onClose = { showSettings = false }
         )
     } else {
@@ -417,5 +435,16 @@ fun LauncherRoot(
                 )
             }
         }
+    }
+
+    if (showOnboarding) {
+        OnboardingGuide(
+            currentIconShape = iconShape,
+            onIconShapeChange = { viewModel.setIconShape(it) },
+            onSetDefaultLauncher = {
+                context.startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
+            },
+            onComplete = ::completeOnboarding
+        )
     }
 }

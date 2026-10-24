@@ -55,6 +55,7 @@ fun SettingsScreen(
     onPostureSensitivityChange: (Int) -> Unit,
     onPostureDurationChange: (Int) -> Unit,
     onPostureQuietHoursChange: (String, String) -> Unit,
+    onOpenGuide: () -> Unit,
     onClose: () -> Unit
 ) {
     BackHandler(onBack = onClose)
@@ -176,6 +177,13 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(24.dp))
             
             SettingsSection(title = "Customization") {
+                SettingsClickableItem(
+                    icon = Icons.Default.Info,
+                    title = "Guide",
+                    value = "Learn how Dazzle works",
+                    onClick = onOpenGuide
+                )
+
                 var showWidgetSelector by remember { mutableStateOf(false) }
                 val widgetLabel = when(widgetType) {
                     WidgetType.SCREEN_TIME -> "Screen Time"
