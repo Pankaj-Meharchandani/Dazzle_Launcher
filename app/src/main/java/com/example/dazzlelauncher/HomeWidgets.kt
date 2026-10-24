@@ -2,6 +2,7 @@ package com.example.dazzlelauncher
 
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
+import android.view.View
 import kotlin.math.abs
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -12,7 +13,6 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -47,7 +47,7 @@ fun HomeWidgets(
     onEditModeChange: (Boolean) -> Unit,
     onReplaceWidget: (Int) -> Unit,
     onRemoveWidget: (Int) -> Unit,
-    onResizeWidget: (Int, Int, Int) -> Unit,
+    onResizeWidget: (Int, Int, Int, Boolean?) -> Unit,
     onMoveWidget: (Int, Int) -> Unit
 ) {
     val context = LocalContext.current
@@ -56,15 +56,17 @@ fun HomeWidgets(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         widgets.forEach { widget ->
             val info = widgetManager.getAppWidgetInfo(widget.appWidgetId)
-            val widgetHeight = (88 * widget.spanY + 16).dp
+            // Keep widget rows on the same 105dp rhythm as the app grid.
+            val widgetHeight = (105 * widget.spanY).dp
 
             Surface(
                 modifier = Modifier
                     .fillMaxWidth(widget.spanX / 4f)
+                    .then(if (widget.anchorEnd) Modifier.align(Alignment.End) else Modifier)
                     .height(widgetHeight)
                     .combinedClickable(
                         enabled = !editMode,
@@ -99,12 +101,29 @@ fun HomeWidgets(
                     if (info != null) {
                         AndroidView(
                             factory = {
-                                widgetHost.createView(context, widget.appWidgetId, info)
+                                widgetHost.createView(context, widget.appWidgetId, info).apply {
+                                    setOnLongClickListener {
+                                        if (!editMode) {
+                                            onEditModeChange(true)
+                                            true
+                                        } else {
+                                            false
+                                        }
+                                    }
+                                }
                             },
                             modifier = Modifier
-                                .fillMaxSize()
-                                .padding(8.dp)
-                                .clip(RoundedCornerShape(12.dp))
+                                .fillMaxSize(),
+                            update = { hostView ->
+                                hostView.setOnLongClickListener(
+                                    if (!editMode) {
+                                        View.OnLongClickListener {
+                                            onEditModeChange(true)
+                                            true
+                                        }
+                                    } else null
+                                )
+                            }
                         )
                     }
 
@@ -120,48 +139,47 @@ fun HomeWidgets(
                         )
 
                         ResizeHandle(
-                            modifier = Modifier.align(Alignment.TopCenter),
-                            axis = ResizeAxis.VERTICAL,
-                            outwardDirection = -1f,
-                            onResize = { delta -> onResizeWidget(widget.appWidgetId, 0, delta) }
-                        )
-                        ResizeHandle(
                             modifier = Modifier.align(Alignment.BottomCenter),
                             axis = ResizeAxis.VERTICAL,
                             outwardDirection = 1f,
-                            onResize = { delta -> onResizeWidget(widget.appWidgetId, 0, delta) }
+                            onResize = { delta -> onResizeWidget(widget.appWidgetId, 0, delta, null) }
                         )
                         ResizeHandle(
                             modifier = Modifier.align(Alignment.CenterStart),
                             axis = ResizeAxis.HORIZONTAL,
                             outwardDirection = -1f,
-                            onResize = { delta -> onResizeWidget(widget.appWidgetId, delta, 0) }
+                            onResize = { delta -> onResizeWidget(widget.appWidgetId, delta, 0, true) }
                         )
                         ResizeHandle(
                             modifier = Modifier.align(Alignment.CenterEnd),
                             axis = ResizeAxis.HORIZONTAL,
                             outwardDirection = 1f,
-                            onResize = { delta -> onResizeWidget(widget.appWidgetId, delta, 0) }
+                            onResize = { delta -> onResizeWidget(widget.appWidgetId, delta, 0, false) }
                         )
 
-                        IconButton(
-                            onClick = { onRemoveWidget(widget.appWidgetId) },
+                        Box(
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
-                                .padding(2.dp)
                                 .size(32.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary)
+                                .combinedClickable(
+                                    onClick = { onRemoveWidget(widget.appWidgetId) },
+                                    onLongClick = {}
+                                ),
+                            contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Remove widget",
-                                tint = MaterialTheme.colorScheme.onSurface
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.onPrimary
                             )
                         }
                     }
                 }
             }
         }
-        Spacer(modifier = Modifier.height(4.dp))
     }
 }
 

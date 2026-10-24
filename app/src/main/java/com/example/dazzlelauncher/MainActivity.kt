@@ -368,8 +368,8 @@ fun LauncherRoot(
                         widgetHost.deleteAppWidgetId(appWidgetId)
                         viewModel.removeHomeWidget(appWidgetId)
                     },
-                    onResizeWidget = { appWidgetId, deltaX, deltaY ->
-                        viewModel.resizeHomeWidget(appWidgetId, deltaX, deltaY)
+                    onResizeWidget = { appWidgetId, deltaX, deltaY, anchorEnd ->
+                        viewModel.resizeHomeWidget(appWidgetId, deltaX, deltaY, anchorEnd)
                     },
                     onMoveWidget = { appWidgetId, direction ->
                         viewModel.moveHomeWidget(appWidgetId, direction)

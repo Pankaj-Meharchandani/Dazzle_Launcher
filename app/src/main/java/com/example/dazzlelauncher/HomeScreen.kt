@@ -8,6 +8,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -64,7 +65,7 @@ fun HomeScreen(
     onAddWidget: () -> Unit,
     onReplaceWidget: (Int) -> Unit,
     onRemoveWidget: (Int) -> Unit,
-    onResizeWidget: (Int, Int, Int) -> Unit,
+    onResizeWidget: (Int, Int, Int, Boolean?) -> Unit,
     onMoveWidget: (Int, Int) -> Unit
 ) {
     val context = LocalContext.current
@@ -110,8 +111,26 @@ fun HomeScreen(
         val pagerHeight = totalHeight - reservedHeight
         val rows = (pagerHeight.value / 105).toInt().coerceIn(1, 6)
         val itemsPerPage = rows * 4
-        val appPages = if (apps.isEmpty()) 1 else (apps.size + itemsPerPage - 1) / itemsPerPage
+        // Widgets consume the same row units as apps on the first app page.
+        // Apps that no longer fit continue on the next page.
+        // Convert the widget stack plus its 12dp app gap into the smallest
+        // number of grid rows it actually occupies. Do not reserve a whole
+        // extra row for a small spacing value.
+        val widgetPixels = if (homeWidgets.isEmpty()) 0 else
+            homeWidgets.sumOf { it.spanY * 105 } + homeWidgets.size * 12
+        val widgetRows = (widgetPixels + 104) / 105
+        val firstPageRows = (rows - widgetRows).coerceAtLeast(0)
+        val firstPageItems = firstPageRows * 4
+        val remainingApps = (apps.size - firstPageItems).coerceAtLeast(0)
+        val remainingPages = if (remainingApps == 0) 0 else
+            (remainingApps + itemsPerPage - 1) / itemsPerPage
+        val appPages = if (apps.isEmpty()) 1 else maxOf(1, 1 + remainingPages)
         val pagerState = rememberPagerState(initialPage = 1, pageCount = { appPages + 1 })
+
+        // A page swipe always leaves widget edit mode.
+        LaunchedEffect(pagerState.currentPage) {
+            widgetEditMode = false
+        }
 
         Column(
             modifier = Modifier
@@ -133,6 +152,14 @@ fun HomeScreen(
                 .pointerInput(widgetEditMode) {
                     if (widgetEditMode) {
                         detectTapGestures(onTap = { widgetEditMode = false })
+                    }
+                }
+                .pointerInput(widgetEditMode) {
+                    if (widgetEditMode) {
+                        detectDragGestures(
+                            onDragStart = { widgetEditMode = false },
+                            onDrag = { _, _ -> }
+                        )
                     }
                 }
                 .padding(top = 80.dp)
@@ -227,9 +254,11 @@ fun HomeScreen(
                     ScreentimePage(viewModel = viewModel, shouldUseDarkText = shouldUseDarkText, useWallpaper = useWallpaper, iconShape = iconShape)
                 } else {
                     val appPage = page - 1
-                    val startIdx = appPage * itemsPerPage
-                    val endIdx = minOf(startIdx + itemsPerPage, apps.size)
+                    val startIdx = if (appPage == 0) 0 else firstPageItems + (appPage - 1) * itemsPerPage
+                    val pageCapacity = if (appPage == 0) firstPageItems else itemsPerPage
+                    val endIdx = minOf(startIdx + pageCapacity, apps.size)
                     val pageApps = if (apps.isEmpty()) emptyList() else apps.subList(startIdx, endIdx)
+                    val appRowsOnPage = (pageApps.size + 3) / 4
                     
                     Column(modifier = Modifier.fillMaxSize()) {
                         if (appPage == 0) {
@@ -247,7 +276,9 @@ fun HomeScreen(
                         }
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(4),
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height((appRowsOnPage * 105).dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             userScrollEnabled = false,

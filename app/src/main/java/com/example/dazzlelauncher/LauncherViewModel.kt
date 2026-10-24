@@ -61,7 +61,8 @@ data class AppUsageInfo(
 data class HomeWidget(
     val appWidgetId: Int,
     val spanX: Int = 4,
-    val spanY: Int = 1
+    val spanY: Int = 1,
+    val anchorEnd: Boolean = false
 )
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
@@ -227,12 +228,18 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         updateHomeWidgets(_homeWidgets.value.filterNot { it.appWidgetId == appWidgetId })
     }
 
-    fun resizeHomeWidget(appWidgetId: Int, deltaX: Int = 0, deltaY: Int = 0) {
+    fun resizeHomeWidget(
+        appWidgetId: Int,
+        deltaX: Int = 0,
+        deltaY: Int = 0,
+        anchorEnd: Boolean? = null
+    ) {
         updateHomeWidgets(_homeWidgets.value.map { widget ->
             if (widget.appWidgetId == appWidgetId) {
                 widget.copy(
                     spanX = (widget.spanX + deltaX).coerceIn(1, 4),
-                    spanY = (widget.spanY + deltaY).coerceIn(1, 3)
+                    spanY = (widget.spanY + deltaY).coerceIn(1, 3),
+                    anchorEnd = anchorEnd ?: widget.anchorEnd
                 )
             } else widget
         })
@@ -254,11 +261,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             .split("|")
             .mapNotNull { encoded ->
                 val parts = encoded.split(":")
-                if (parts.size != 3) return@mapNotNull null
+                if (parts.size < 3) return@mapNotNull null
                 HomeWidget(
                     appWidgetId = parts[0].toIntOrNull() ?: return@mapNotNull null,
                     spanX = (parts[1].toIntOrNull() ?: 4).coerceIn(1, 4),
-                    spanY = (parts[2].toIntOrNull() ?: 1).coerceIn(1, 3)
+                    spanY = (parts[2].toIntOrNull() ?: 1).coerceIn(1, 3),
+                    anchorEnd = parts.getOrNull(3) == "true"
                 )
             }
     }
@@ -267,7 +275,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         _homeWidgets.value = widgets
         prefs.edit().putString(
             "home_widgets",
-            widgets.joinToString("|") { "${it.appWidgetId}:${it.spanX}:${it.spanY}" }
+            widgets.joinToString("|") { "${it.appWidgetId}:${it.spanX}:${it.spanY}:${it.anchorEnd}" }
         ).apply()
     }
 
