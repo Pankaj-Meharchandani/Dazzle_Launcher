@@ -377,7 +377,16 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         val apps = launcherApps.getActivityList(null, user).mapNotNull { info ->
             if (info.applicationInfo.packageName == packageName) return@mapNotNull null
 
-            val iconDrawable = info.getIcon(0)
+            val appInfo = info.applicationInfo
+            // MainActivity inherits Jetlab's application icon; it does not
+            // declare a separate activity icon. Prefer the unbadged package
+            // icon so it is not replaced by Android's generic activity icon.
+            val iconDrawable = runCatching {
+                appInfo.loadUnbadgedIcon(packageManager)
+            }.getOrNull()
+                ?: runCatching { packageManager.getApplicationIcon(appInfo.packageName) }.getOrNull()
+                ?: runCatching { info.getBadgedIcon(0) }.getOrNull()
+                ?: runCatching { info.getIcon(0) }.getOrNull()
             // Limit icon size for better performance and memory usage
             val bitmap = iconDrawable?.toBitmap(width = 200, height = 200)
             val dominantColor = bitmap?.let { getDominantColor(it) }
@@ -389,7 +398,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 icon = bitmap?.asImageBitmap(),
                 dominantColor = dominantColor
             )
-        }.sortedBy { it.label }
+        }.sortedBy { it.label.trim().lowercase(Locale.getDefault()) }
         
         _allApps.value = apps
         
