@@ -55,6 +55,7 @@ fun HomeScreen(
     onSwipeDown: () -> Unit,
     onToggleDock: (AppInfo) -> Unit,
     shouldUseDarkText: Boolean,
+    blurDrawer: Boolean,
     viewModel: LauncherViewModel,
     useWallpaper: Boolean,
     is24Hour: Boolean,
@@ -435,7 +436,13 @@ fun HomeScreen(
                     }
                 }
             } else {
-                Dock(apps = dockApps, onAppClick = onAppClick, onLongClick = onToggleDock, iconShape = iconShape)
+                Dock(
+                    apps = dockApps,
+                    onAppClick = onAppClick,
+                    onLongClick = onToggleDock,
+                    iconShape = iconShape,
+                    blurDrawer = blurDrawer
+                )
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
@@ -443,7 +450,13 @@ fun HomeScreen(
 }
 
 @Composable
-fun Dock(apps: List<AppInfo>, onAppClick: (String) -> Unit, onLongClick: (AppInfo) -> Unit, iconShape: IconShape) {
+fun Dock(
+    apps: List<AppInfo>,
+    onAppClick: (String) -> Unit,
+    onLongClick: (AppInfo) -> Unit,
+    iconShape: IconShape,
+    blurDrawer: Boolean
+) {
     val scale = if (apps.size >= 5) 0.85f else 1f
     
     Surface(
@@ -451,7 +464,8 @@ fun Dock(apps: List<AppInfo>, onAppClick: (String) -> Unit, onLongClick: (AppInf
             .padding(horizontal = 16.dp)
             .fillMaxWidth()
             .height(100.dp),
-        color = Color.Black.copy(alpha = 0.3f),
+        // Match BottomSheetScaffold's app-drawer container exactly.
+        color = MaterialTheme.colorScheme.surface.copy(alpha = if (blurDrawer) 0.4f else 0.9f),
         shape = RoundedCornerShape(32.dp),
         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
     ) {

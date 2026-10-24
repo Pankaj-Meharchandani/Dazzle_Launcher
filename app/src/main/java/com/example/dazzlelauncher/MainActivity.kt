@@ -397,6 +397,7 @@ fun LauncherRoot(
                     },
                     onToggleDock = { viewModel.toggleDockApp(it) },
                     shouldUseDarkText = shouldUseDarkText,
+                    blurDrawer = blurDrawer,
                     viewModel = viewModel,
                     useWallpaper = useWallpaper,
                     is24Hour = is24Hour,
