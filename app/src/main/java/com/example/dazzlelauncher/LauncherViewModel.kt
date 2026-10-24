@@ -391,8 +391,31 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             val bitmap = iconDrawable?.toBitmap(width = 200, height = 200)
             val dominantColor = bitmap?.let { getDominantColor(it) }
             
+            // Resolve a user-friendly label
+            val rawLabel = info.label?.toString()?.takeIf { it.isNotBlank() }
+            val applicationLabel = runCatching { appInfo.loadLabel(packageManager).toString() }.getOrNull()?.takeIf { it.isNotBlank() }
+
+            val labelCandidate = if (rawLabel == null || rawLabel == info.name || rawLabel == appInfo.packageName) {
+                applicationLabel ?: rawLabel
+            } else {
+                rawLabel
+            }
+
+            val displayLabel = if (labelCandidate.isNullOrBlank() || labelCandidate == info.name || labelCandidate.contains(".")) {
+                val fallbackName = if (labelCandidate?.contains(".") == true) {
+                    val parts = labelCandidate.split(".")
+                    val filtered = parts.filterNot { it.contains("Activity", ignoreCase = true) || it == "com" || it == "example" }
+                    filtered.lastOrNull() ?: parts.last()
+                } else {
+                    labelCandidate ?: appInfo.packageName
+                }
+                fallbackName.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+            } else {
+                labelCandidate
+            }
+
             AppInfo(
-                label = info.label.toString(),
+                label = displayLabel,
                 packageName = info.applicationInfo.packageName,
                 className = info.name,
                 icon = bitmap?.asImageBitmap(),
