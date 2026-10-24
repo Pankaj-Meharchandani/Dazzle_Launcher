@@ -177,13 +177,6 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(24.dp))
             
             SettingsSection(title = "Customization") {
-                SettingsClickableItem(
-                    icon = Icons.Default.Info,
-                    title = "Guide",
-                    value = "Learn how Dazzle works",
-                    onClick = onOpenGuide
-                )
-
                 var showWidgetSelector by remember { mutableStateOf(false) }
                 val widgetLabel = when(widgetType) {
                     WidgetType.SCREEN_TIME -> "Screen Time"
@@ -307,6 +300,17 @@ fun SettingsScreen(
                         }
                     )
                 }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            SettingsSection(title = "Guide") {
+                SettingsClickableItem(
+                    icon = Icons.Default.Info,
+                    title = "Guide",
+                    value = "Learn how to use Dazzle",
+                    onClick = onOpenGuide
+                )
             }
 
             Spacer(modifier = Modifier.height(48.dp))

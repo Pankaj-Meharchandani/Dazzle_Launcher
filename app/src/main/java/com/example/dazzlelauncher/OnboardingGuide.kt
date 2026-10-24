@@ -2,6 +2,12 @@ package com.example.dazzlelauncher
 
 import android.widget.ImageView
 import android.widget.ImageView.ScaleType
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -30,14 +36,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.res.painterResource
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
 import kotlin.math.abs
 
 @Composable
@@ -50,8 +61,8 @@ fun OnboardingGuide(
     var page by remember { mutableIntStateOf(0) }
     val pages = listOf(
         "Welcome to Dazzle" to "A calmer launcher designed to help you spend less time on your phone and more time on what matters.",
-        "Make distraction less automatic" to "Dazzle changes the usual home-screen routine, helping you pause before opening distracting apps.",
-        "Your dock stays put" to "Dock apps never shuffle. Keep your essential tools there, while other apps can move around to break autopilot habits.",
+        "Make distraction less automatic" to "Dazzle changes the usual home-screen routine, helping you pause before opening distracting apps and spend less time scrolling.",
+        "Keep your essentials within reach" to "Long-press an app in the drawer to place it on Home. From Home, long-press an app to move it to the dock. Dock apps stay fixed while Home apps can shuffle.",
         "Make it yours" to "Choose an icon shape now. You can change this, your wallpaper, and other details later in Settings.",
         "Ready to reduce screen time?" to "Set Dazzle as your default launcher to make these calmer choices part of your everyday routine."
     )
@@ -91,56 +102,72 @@ fun OnboardingGuide(
         ) {
             Spacer(modifier = Modifier.weight(1f))
 
-            if (page == 0) {
-                AndroidView(
-                    factory = { viewContext ->
-                        ImageView(viewContext).apply {
-                            setImageResource(R.mipmap.ic_launcher)
-                            scaleType = ScaleType.CENTER_INSIDE
+            AnimatedContent(
+                targetState = page,
+                transitionSpec = {
+                    if (targetState > initialState) {
+                        (slideInHorizontally { it } + fadeIn()) togetherWith
+                            (slideOutHorizontally { -it / 3 } + fadeOut())
+                    } else {
+                        (slideInHorizontally { -it } + fadeIn()) togetherWith
+                            (slideOutHorizontally { it / 3 } + fadeOut())
+                    }
+                },
+                label = "guidePage"
+            ) { currentPage ->
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (currentPage == 0) {
+                        AndroidView(
+                            factory = { viewContext ->
+                                ImageView(viewContext).apply {
+                                    setImageResource(R.mipmap.ic_launcher)
+                                    scaleType = ScaleType.CENTER_INSIDE
+                                }
+                            },
+                            modifier = Modifier.size(144.dp),
+                            update = { it.setImageResource(R.mipmap.ic_launcher) }
+                        )
+                        Spacer(modifier = Modifier.height(28.dp))
+                    } else if (currentPage == 2) {
+                        Image(
+                            painter = painterResource(R.drawable.dock),
+                            contentDescription = "Dazzle dock preview",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(150.dp),
+                            contentScale = ContentScale.Fit
+                        )
+                        Spacer(modifier = Modifier.height(28.dp))
+                    } else if (currentPage == 3) {
+                        IconShapePreview(
+                            shape = currentIconShape,
+                            shapeOptions = shapeOptions,
+                            onShapeChange = onIconShapeChange,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                    }
+
+                    Text(
+                        text = pages[currentPage].first,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = pages[currentPage].second,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+
+                    if (currentPage == pages.lastIndex) {
+                        Spacer(modifier = Modifier.height(24.dp))
+                        OutlinedButton(onClick = onSetDefaultLauncher) {
+                            Text("Set as default launcher")
                         }
-                    },
-                    modifier = Modifier.size(144.dp),
-                    update = { it.setImageResource(R.mipmap.ic_launcher) }
-                )
-                Spacer(modifier = Modifier.height(28.dp))
-            } else if (page == 2) {
-                Image(
-                    painter = painterResource(R.drawable.dock),
-                    contentDescription = "Dazzle dock preview",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(150.dp),
-                    contentScale = ContentScale.Fit
-                )
-                Spacer(modifier = Modifier.height(28.dp))
-            } else if (page == 3) {
-                IconShapePreview(
-                    shape = currentIconShape,
-                    shapeOptions = shapeOptions,
-                    onShapeChange = onIconShapeChange,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-
-            Text(
-                text = pages[page].first,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = pages[page].second,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-
-            if (page == pages.lastIndex) {
-                Spacer(modifier = Modifier.height(24.dp))
-                OutlinedButton(onClick = onSetDefaultLauncher) {
-                    Text("Set as default launcher")
+                    }
                 }
             }
 
@@ -188,27 +215,38 @@ private fun IconShapePreview(
     modifier: Modifier = Modifier
 ) {
     val backgroundColor = if (androidx.compose.foundation.isSystemInDarkTheme()) Color.White else Color.Black
+    val context = LocalContext.current
+    val previewIcon = remember(context) {
+        ContextCompat.getDrawable(context, R.mipmap.ic_launcher)
+            ?.toBitmap(width = 200, height = 200)
+            ?.asImageBitmap()
+    }
+    val previewApp = remember(previewIcon) {
+        AppInfo(
+            label = "Dazzle",
+            packageName = context.packageName,
+            className = "preview",
+            icon = previewIcon
+        )
+    }
 
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             modifier = Modifier
                 .size(128.dp)
                 .background(backgroundColor, RoundedCornerShape(20.dp))
-                .padding(14.dp),
+                .padding(10.dp),
             contentAlignment = Alignment.Center
         ) {
-            AndroidView(
-                factory = { context ->
-                    ImageView(context).apply {
-                        setImageResource(R.mipmap.ic_launcher)
-                        scaleType = ScaleType.CENTER_INSIDE
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(getIconShape(shape)),
-                update = { it.setImageResource(R.mipmap.ic_launcher) }
-            )
+            previewIcon?.let {
+                AppItem(
+                    app = previewApp,
+                    onClick = {},
+                    showLabel = false,
+                    iconShape = shape,
+                    modifier = Modifier.scale(1.55f)
+                )
+            }
         }
         Spacer(modifier = Modifier.height(12.dp))
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
