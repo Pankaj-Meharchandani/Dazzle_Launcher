@@ -42,7 +42,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.unit.dp
@@ -231,6 +230,7 @@ private fun ExerciseDialog(
 
 @Composable
 private fun Flower(modifier: Modifier, flowerScale: Float, rotation: Float) {
+    val flowerColor = MaterialTheme.colorScheme.primary
     Canvas(modifier = modifier) {
         val center = Offset(size.width / 2f, size.height / 2f)
         rotate(rotation, center) {
@@ -240,7 +240,7 @@ private fun Flower(modifier: Modifier, flowerScale: Float, rotation: Float) {
                 repeat(8) { index ->
                     val angle = Math.toRadians(index * 45.0)
                     drawCircle(
-                        color = Color(0xFF25222D),
+                        color = flowerColor,
                         radius = petalRadius,
                         center = Offset(
                             center.x + cos(angle).toFloat() * radius,
@@ -248,7 +248,7 @@ private fun Flower(modifier: Modifier, flowerScale: Float, rotation: Float) {
                         )
                     )
                 }
-                drawCircle(Color(0xFF25222D), size.minDimension * 0.16f, center)
+                drawCircle(flowerColor, size.minDimension * 0.16f, center)
             }
         }
     }
