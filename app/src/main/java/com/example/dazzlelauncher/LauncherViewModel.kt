@@ -14,6 +14,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
+import android.widget.Toast
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
@@ -768,7 +769,14 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun launchApp(context: Context, packageName: String) {
         updateBlockedAppsForCurrentTime()
-        if (packageName in _blockedApps.value) return
+        if (packageName in _blockedApps.value) {
+            Toast.makeText(
+                context,
+                "This app is blocked during scheduled hours",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
         val intent = packageManager.getLaunchIntentForPackage(packageName)
         if (intent != null) {
             context.startActivity(intent)
