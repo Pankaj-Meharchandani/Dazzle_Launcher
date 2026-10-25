@@ -251,6 +251,8 @@ fun LauncherRoot(
     val homeBlur = if (blurDrawer) (drawerExpansion * 20f).dp else 0.dp
 
     var showSettings by remember { mutableStateOf(false) }
+    var showExercisePicker by remember { mutableStateOf(false) }
+    var exerciseCondition by remember { mutableStateOf<ForceAllowCondition?>(null) }
     var showSelectiveShuffle by remember { mutableStateOf(false) }
     var pendingWidgetId by remember { mutableIntStateOf(AppWidgetManager.INVALID_APPWIDGET_ID) }
     var replacingWidgetId by remember { mutableIntStateOf(AppWidgetManager.INVALID_APPWIDGET_ID) }
@@ -424,6 +426,7 @@ fun LauncherRoot(
                         }
                     },
                     onOpenSettings = { showSettings = true },
+                    onOpenExercises = { showExercisePicker = true },
                     isDefault = isDefault,
                     onSetDefault = {
                         val intent = Intent(Settings.ACTION_HOME_SETTINGS)
@@ -487,6 +490,23 @@ fun LauncherRoot(
                 viewModel.launchApp(context, packageName, ignoreBlock = true)
             },
             onDismiss = { forceAllowPackage = null }
+        )
+    }
+
+    if (showExercisePicker) {
+        ExercisePickerDialog(
+            onSelect = { condition ->
+                showExercisePicker = false
+                exerciseCondition = condition
+            },
+            onDismiss = { showExercisePicker = false }
+        )
+    }
+
+    exerciseCondition?.let { condition ->
+        StandaloneExerciseFlow(
+            condition = condition,
+            onDismiss = { exerciseCondition = null }
         )
     }
 

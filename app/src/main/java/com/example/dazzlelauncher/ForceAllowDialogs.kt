@@ -44,6 +44,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -75,6 +77,48 @@ fun ForceAllowFlow(
         condition == ForceAllowCondition.BREATHING -> BreathingDialog(onOpenAnyway, onDismiss)
         condition == ForceAllowCondition.WAIT -> WaitDialog(onOpenAnyway, onDismiss)
         else -> NeckExerciseDialog(onOpenAnyway, onDismiss)
+    }
+}
+
+@Composable
+fun ExercisePickerDialog(
+    onSelect: (ForceAllowCondition) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Choose an exercise") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { onSelect(ForceAllowCondition.BREATHING) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Breathing exercise")
+                }
+                Button(
+                    onClick = { onSelect(ForceAllowCondition.NECK) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Neck exercise")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+fun StandaloneExerciseFlow(
+    condition: ForceAllowCondition,
+    onDismiss: () -> Unit
+) {
+    when (condition) {
+        ForceAllowCondition.BREATHING -> BreathingDialog(onDismiss, onDismiss)
+        ForceAllowCondition.NECK -> NeckExerciseDialog(onDismiss, onDismiss)
+        else -> onDismiss()
     }
 }
 
@@ -116,9 +160,13 @@ private fun BreathingDialog(onComplete: () -> Unit, onCancel: () -> Unit) {
     }
 
     val elapsed = 60 - remaining
-    val isExhale = (elapsed / 4) % 2 == 0
+    val isInhale = (elapsed / 4) % 2 == 0
+    val hapticFeedback = LocalHapticFeedback.current
+    LaunchedEffect(isInhale) {
+        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+    }
     val flowerScale by animateFloatAsState(
-        targetValue = if (isExhale) 0.62f else 1f,
+        targetValue = if (isInhale) 1f else 0.62f,
         animationSpec = tween(1800),
         label = "breathingFlowerScale"
     )
@@ -130,7 +178,7 @@ private fun BreathingDialog(onComplete: () -> Unit, onCancel: () -> Unit) {
     )
 
     ExerciseDialog(title = "Breathe", onCancel = onCancel) {
-        Text(if (isExhale) "Exhale" else "Inhale", style = MaterialTheme.typography.headlineSmall)
+        Text(if (isInhale) "Inhale" else "Exhale", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(16.dp))
         Flower(
             modifier = Modifier.size(180.dp),
@@ -187,6 +235,10 @@ private fun NeckExerciseDialog(onComplete: () -> Unit, onCancel: () -> Unit) {
     )
     val stepIndex = ((30 - remaining) / 8).coerceAtMost(3)
     val progress = (30 - remaining) / 30f
+    val hapticFeedback = LocalHapticFeedback.current
+    LaunchedEffect(stepIndex) {
+        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+    }
 
     ExerciseDialog(title = "Neck exercise", onCancel = onCancel) {
         Icon(Icons.Default.Face, contentDescription = null, modifier = Modifier.size(40.dp))

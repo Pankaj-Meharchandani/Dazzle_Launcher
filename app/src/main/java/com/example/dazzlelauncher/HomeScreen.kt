@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -49,6 +50,7 @@ fun HomeScreen(
     dockApps: List<AppInfo>,
     onAppClick: (String) -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenExercises: () -> Unit,
     isDefault: Boolean,
     onSetDefault: () -> Unit,
     onSwipeUp: () -> Unit,
@@ -340,9 +342,37 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(100.dp),
-                    horizontalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Column(
+                        modifier = Modifier
+                            .clickable { onOpenExercises() }
+                            .padding(4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(60.dp)
+                                .clip(getIconShape(iconShape))
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Face,
+                                contentDescription = "Exercises",
+                                modifier = Modifier.size(32.dp),
+                                tint = if (shouldUseDarkText || !isSystemInDarkTheme()) Color.Black else Color.White
+                            )
+                        }
+                        Text(
+                            text = "Exercise",
+                            fontSize = 11.sp,
+                            color = if (effectiveDarkText) Color.Black else Color.White,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+
                     Column(
                         modifier = Modifier
                             .clickable {
