@@ -16,6 +16,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.ColorMatrixColorFilter
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
@@ -45,6 +47,7 @@ fun AppItem(
     showLabel: Boolean = true,
     labelColor: Color = if (isSystemInDarkTheme()) Color.White else MaterialTheme.colorScheme.onSurface,
     iconShape: IconShape = IconShape.SQUARE,
+    isBlocked: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val shape = getIconShape(iconShape)
@@ -61,13 +64,19 @@ fun AppItem(
             modifier = Modifier
                 .size(60.dp)
                 .clip(shape)
-                .background(app.dominantColor?.let { Color(it) } ?: MaterialTheme.colorScheme.surfaceVariant)
+                .background(
+                    if (isBlocked) Color.Gray.copy(alpha = 0.7f)
+                    else app.dominantColor?.let { Color(it) } ?: MaterialTheme.colorScheme.surfaceVariant
+                )
         ) {
             app.icon?.let {
                 Image(
                     bitmap = it,
                     contentDescription = app.label,
                     modifier = Modifier.fillMaxSize(),
+                    colorFilter = if (isBlocked) {
+                        ColorMatrixColorFilter(ColorMatrix().apply { setToSaturation(0f) })
+                    } else null,
                     contentScale = ContentScale.Crop
                 )
             }
@@ -81,7 +90,7 @@ fun AppItem(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 4.dp),
                 lineHeight = 14.sp,
-                color = labelColor,
+                color = if (isBlocked) labelColor.copy(alpha = 0.55f) else labelColor,
                 style = TextStyle(
                     shadow = Shadow(
                         color = Color.Black.copy(alpha = 0.5f),

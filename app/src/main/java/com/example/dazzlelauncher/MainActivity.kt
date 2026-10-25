@@ -179,6 +179,10 @@ fun LauncherRoot(
     val postureDuration by viewModel.postureDuration.collectAsState()
     val postureQuietStart by viewModel.postureQuietStart.collectAsState()
     val postureQuietEnd by viewModel.postureQuietEnd.collectAsState()
+    val blockedApps by viewModel.blockedApps.collectAsState()
+    val limitedApps by viewModel.limitedApps.collectAsState()
+    val appBlockStart by viewModel.appBlockStart.collectAsState()
+    val appBlockEnd by viewModel.appBlockEnd.collectAsState()
     val context = LocalContext.current
     val effectiveDarkText = shouldUseDarkText || (!useWallpaper && !isSystemInDarkTheme())
 
@@ -318,6 +322,10 @@ fun LauncherRoot(
             postureDuration = postureDuration,
             postureQuietStart = postureQuietStart,
             postureQuietEnd = postureQuietEnd,
+            allApps = allApps,
+            limitedApps = limitedApps,
+            appBlockStart = appBlockStart,
+            appBlockEnd = appBlockEnd,
             onModeChange = { viewModel.setMode(it) },
             onShuffleTypeChange = { viewModel.setShuffleType(it) },
             onOpenSelectiveShuffle = { showSelectiveShuffle = true },
@@ -330,6 +338,8 @@ fun LauncherRoot(
             onPostureSensitivityChange = { viewModel.setPostureSensitivity(it, context) },
             onPostureDurationChange = { viewModel.setPostureDuration(it, context) },
             onPostureQuietHoursChange = { start, end -> viewModel.setPostureQuietHours(start, end, context) },
+            onToggleLimitedApp = { viewModel.toggleLimitedApp(it) },
+            onAppBlockHoursChange = { start, end -> viewModel.setAppBlockHours(start, end) },
             onOpenGuide = {
                 showSettings = false
                 showOnboarding = true
@@ -355,7 +365,8 @@ fun LauncherRoot(
                         useWallpaper = useWallpaper,
                         blurDrawer = blurDrawer,
                         iconShape = iconShape,
-                        launcherMode = mode
+                        launcherMode = mode,
+                        blockedApps = blockedApps
                     )
                 }
             },
@@ -444,7 +455,8 @@ fun LauncherRoot(
                     },
                     onMoveWidget = { appWidgetId, direction ->
                         viewModel.moveHomeWidget(appWidgetId, direction)
-                    }
+                    },
+                    blockedApps = blockedApps
                 )
             }
         }

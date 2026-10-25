@@ -34,7 +34,8 @@ fun AppDrawerContent(
     useWallpaper: Boolean,
     blurDrawer: Boolean,
     iconShape: IconShape,
-    launcherMode: LauncherMode
+    launcherMode: LauncherMode,
+    blockedApps: Set<String>
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val gridState = rememberLazyGridState()
@@ -124,7 +125,8 @@ fun AppDrawerContent(
                             onClick = onAppClick, 
                             onLongClick = { onToggleHome(app) },
                             labelColor = labelColor, 
-                            iconShape = iconShape
+                            iconShape = iconShape,
+                            isBlocked = app.packageName in blockedApps
                         )
                         
                         if (isOnHome) {

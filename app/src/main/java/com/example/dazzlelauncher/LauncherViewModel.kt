@@ -164,6 +164,20 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private val _usageStats = MutableStateFlow<List<AppUsageInfo>>(emptyList())
     val usageStats: StateFlow<List<AppUsageInfo>> = _usageStats.asStateFlow()
 
+    private val _limitedApps = MutableStateFlow<Set<String>>(
+        prefs.getStringSet("limited_apps", emptySet()) ?: emptySet()
+    )
+    val limitedApps: StateFlow<Set<String>> = _limitedApps.asStateFlow()
+
+    private val _appBlockStart = MutableStateFlow(prefs.getString("app_block_start", "18:00") ?: "18:00")
+    val appBlockStart: StateFlow<String> = _appBlockStart.asStateFlow()
+
+    private val _appBlockEnd = MutableStateFlow(prefs.getString("app_block_end", "06:00") ?: "06:00")
+    val appBlockEnd: StateFlow<String> = _appBlockEnd.asStateFlow()
+
+    private val _blockedApps = MutableStateFlow<Set<String>>(emptySet())
+    val blockedApps: StateFlow<Set<String>> = _blockedApps.asStateFlow()
+
     private val _selectedDate = MutableStateFlow(Calendar.getInstance())
     val selectedDate: StateFlow<Calendar> = _selectedDate.asStateFlow()
 
@@ -627,6 +641,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun fetchUsageStats() {
         val context = getApplication<Application>()
+        updateBlockedAppsForCurrentTime()
         if (!hasUsageAccess(context)) return
 
         val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
@@ -696,6 +711,42 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         .sortedByDescending { it.usageTime }
         
         _usageStats.value = appUsageList
+        updateBlockedAppsForCurrentTime()
+    }
+
+    private fun updateBlockedAppsForCurrentTime() {
+        _blockedApps.value = if (isWithinAppBlockWindow()) _limitedApps.value else emptySet()
+    }
+
+    private fun isWithinAppBlockWindow(): Boolean {
+        val now = Calendar.getInstance()
+        val current = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
+        val start = parseTimeMinutes(_appBlockStart.value)
+        val end = parseTimeMinutes(_appBlockEnd.value)
+        return if (start == end) true
+        else if (start < end) current >= start && current < end
+        else current >= start || current < end
+    }
+
+    private fun parseTimeMinutes(value: String): Int {
+        val parts = value.split(":")
+        return (parts.getOrNull(0)?.toIntOrNull() ?: 0) * 60 +
+            (parts.getOrNull(1)?.toIntOrNull() ?: 0)
+    }
+
+    fun toggleLimitedApp(app: AppInfo) {
+        val updated = _limitedApps.value.toMutableSet()
+        if (!updated.add(app.packageName)) updated.remove(app.packageName)
+        _limitedApps.value = updated
+        prefs.edit().putStringSet("limited_apps", updated).apply()
+        fetchUsageStats()
+    }
+
+    fun setAppBlockHours(start: String, end: String) {
+        _appBlockStart.value = start
+        _appBlockEnd.value = end
+        prefs.edit().putString("app_block_start", start).putString("app_block_end", end).apply()
+        updateBlockedAppsForCurrentTime()
     }
 
     private fun isToday(calendar: Calendar): Boolean {
@@ -716,6 +767,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun launchApp(context: Context, packageName: String) {
+        updateBlockedAppsForCurrentTime()
+        if (packageName in _blockedApps.value) return
         val intent = packageManager.getLaunchIntentForPackage(packageName)
         if (intent != null) {
             context.startActivity(intent)

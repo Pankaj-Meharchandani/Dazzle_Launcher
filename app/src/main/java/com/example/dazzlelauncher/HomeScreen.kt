@@ -67,7 +67,8 @@ fun HomeScreen(
     onReplaceWidget: (Int) -> Unit,
     onRemoveWidget: (Int) -> Unit,
     onResizeWidget: (Int, Int, Int, Boolean?) -> Unit,
-    onMoveWidget: (Int, Int) -> Unit
+    onMoveWidget: (Int, Int) -> Unit,
+    blockedApps: Set<String>
 ) {
     val context = LocalContext.current
     var currentTime by remember { mutableStateOf(Calendar.getInstance()) }
@@ -293,7 +294,8 @@ fun HomeScreen(
                                     onClick = onAppClick,
                                     onLongClick = { onToggleDock(app) },
                                     labelColor = if (effectiveDarkText) Color.Black else Color.White,
-                                    iconShape = iconShape
+                                    iconShape = iconShape,
+                                    isBlocked = app.packageName in blockedApps
                                 )
                             }
                         }
@@ -443,7 +445,8 @@ fun HomeScreen(
                     onAppClick = onAppClick,
                     onLongClick = onToggleDock,
                     iconShape = iconShape,
-                    blurDrawer = blurDrawer
+                    blurDrawer = blurDrawer,
+                    blockedApps = blockedApps
                 )
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -457,7 +460,8 @@ fun Dock(
     onAppClick: (String) -> Unit,
     onLongClick: (AppInfo) -> Unit,
     iconShape: IconShape,
-    blurDrawer: Boolean
+    blurDrawer: Boolean,
+    blockedApps: Set<String>
 ) {
     val scale = if (apps.size >= 5) 0.85f else 1f
     
@@ -483,7 +487,8 @@ fun Dock(
                         onClick = onAppClick, 
                         onLongClick = { onLongClick(app) },
                         showLabel = false,
-                        iconShape = iconShape
+                        iconShape = iconShape,
+                        isBlocked = app.packageName in blockedApps
                     )
                 }
             }

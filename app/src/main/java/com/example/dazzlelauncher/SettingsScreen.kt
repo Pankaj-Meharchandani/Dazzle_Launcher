@@ -10,6 +10,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -43,6 +45,10 @@ fun SettingsScreen(
     postureDuration: Int,
     postureQuietStart: String,
     postureQuietEnd: String,
+    allApps: List<AppInfo>,
+    limitedApps: Set<String>,
+    appBlockStart: String,
+    appBlockEnd: String,
     onModeChange: (LauncherMode) -> Unit,
     onShuffleTypeChange: (ShuffleType) -> Unit,
     onOpenSelectiveShuffle: () -> Unit,
@@ -55,12 +61,15 @@ fun SettingsScreen(
     onPostureSensitivityChange: (Int) -> Unit,
     onPostureDurationChange: (Int) -> Unit,
     onPostureQuietHoursChange: (String, String) -> Unit,
+    onToggleLimitedApp: (AppInfo) -> Unit,
+    onAppBlockHoursChange: (String, String) -> Unit,
     onOpenGuide: () -> Unit,
     onClose: () -> Unit
 ) {
     BackHandler(onBack = onClose)
     
     val context = LocalContext.current
+    var showLimitedAppsDialog by remember { mutableStateOf(false) }
     val overlayPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
@@ -304,6 +313,43 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            SettingsSection(title = "App Limits") {
+                Text(
+                    "Selected apps are greyed out and blocked during the hours you choose.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+                Text(
+                    "Blocked hours",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+                SettingsClickableItem(
+                    icon = Icons.Default.Schedule,
+                    title = "Set hours",
+                    value = "$appBlockStart – $appBlockEnd",
+                    onClick = {
+                        val startParts = appBlockStart.split(":")
+                        TimePickerDialog(context, { _, h, m ->
+                            val newStart = "%02d:%02d".format(h, m)
+                            val endParts = appBlockEnd.split(":")
+                            TimePickerDialog(context, { _, eh, em ->
+                                onAppBlockHoursChange(newStart, "%02d:%02d".format(eh, em))
+                            }, endParts[0].toInt(), endParts[1].toInt(), true).show()
+                        }, startParts[0].toInt(), startParts[1].toInt(), true).show()
+                    }
+                )
+                SettingsClickableItem(
+                    icon = Icons.Default.Block,
+                    title = "Select apps",
+                    value = if (limitedApps.isEmpty()) "No apps selected" else "${limitedApps.size} app(s) selected",
+                    onClick = { showLimitedAppsDialog = true }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             SettingsSection(title = "Guide") {
                 SettingsClickableItem(
                     icon = Icons.Default.Info,
@@ -316,6 +362,52 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(48.dp))
         }
     }
+
+    if (showLimitedAppsDialog) {
+        LimitedAppsDialog(
+            apps = allApps,
+            selectedPackages = limitedApps,
+            onToggle = onToggleLimitedApp,
+            onDismiss = { showLimitedAppsDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun LimitedAppsDialog(
+    apps: List<AppInfo>,
+    selectedPackages: Set<String>,
+    onToggle: (AppInfo) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Apps with a daily limit") },
+        text = {
+            LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
+                items(apps.distinctBy { it.packageName }, key = { it.packageName }) { app ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { onToggle(app) }.padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        app.icon?.let { icon ->
+                            androidx.compose.foundation.Image(
+                                bitmap = icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(40.dp)
+                            )
+                        }
+                        Text(app.label, modifier = Modifier.weight(1f).padding(horizontal = 12.dp))
+                        Checkbox(
+                            checked = app.packageName in selectedPackages,
+                            onCheckedChange = { onToggle(app) }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } }
+    )
 }
 
 @Composable
