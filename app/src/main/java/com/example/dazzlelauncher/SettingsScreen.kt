@@ -49,6 +49,8 @@ fun SettingsScreen(
     limitedApps: Set<String>,
     appBlockStart: String,
     appBlockEnd: String,
+    forceAllowEnabled: Boolean,
+    forceAllowCondition: ForceAllowCondition,
     onModeChange: (LauncherMode) -> Unit,
     onShuffleTypeChange: (ShuffleType) -> Unit,
     onOpenSelectiveShuffle: () -> Unit,
@@ -63,6 +65,8 @@ fun SettingsScreen(
     onPostureQuietHoursChange: (String, String) -> Unit,
     onToggleLimitedApp: (AppInfo) -> Unit,
     onAppBlockHoursChange: (String, String) -> Unit,
+    onForceAllowToggle: (Boolean) -> Unit,
+    onForceAllowConditionChange: (ForceAllowCondition) -> Unit,
     onOpenGuide: () -> Unit,
     onClose: () -> Unit
 ) {
@@ -70,6 +74,7 @@ fun SettingsScreen(
     
     val context = LocalContext.current
     var showLimitedAppsDialog by remember { mutableStateOf(false) }
+    var showForceAllowConditionDialog by remember { mutableStateOf(false) }
     val overlayPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
@@ -346,6 +351,26 @@ fun SettingsScreen(
                     value = if (limitedApps.isEmpty()) "No apps selected" else "${limitedApps.size} app(s) selected",
                     onClick = { showLimitedAppsDialog = true }
                 )
+                SettingsToggleItem(
+                    icon = Icons.Default.LockOpen,
+                    title = "Force allow apps",
+                    description = "Require a condition before opening blocked apps",
+                    checked = forceAllowEnabled,
+                    onCheckedChange = onForceAllowToggle
+                )
+                if (forceAllowEnabled) {
+                    SettingsClickableItem(
+                        icon = Icons.Default.Spa,
+                        title = "Allow condition",
+                        value = when (forceAllowCondition) {
+                            ForceAllowCondition.NONE -> "None"
+                            ForceAllowCondition.BREATHING -> "Do breathing exercise"
+                            ForceAllowCondition.WAIT -> "Wait for 60 seconds"
+                            ForceAllowCondition.NECK -> "Neck exercise"
+                        },
+                        onClick = { showForceAllowConditionDialog = true }
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -369,6 +394,17 @@ fun SettingsScreen(
             selectedPackages = limitedApps,
             onToggle = onToggleLimitedApp,
             onDismiss = { showLimitedAppsDialog = false }
+        )
+    }
+
+    if (showForceAllowConditionDialog) {
+        ForceAllowConditionDialog(
+            selected = forceAllowCondition,
+            onSelected = {
+                onForceAllowConditionChange(it)
+                showForceAllowConditionDialog = false
+            },
+            onDismiss = { showForceAllowConditionDialog = false }
         )
     }
 }
@@ -407,6 +443,37 @@ private fun LimitedAppsDialog(
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } }
+    )
+}
+
+@Composable
+private fun ForceAllowConditionDialog(
+    selected: ForceAllowCondition,
+    onSelected: (ForceAllowCondition) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Force allow condition") },
+        text = {
+            Column {
+                listOf(
+                    ForceAllowCondition.NONE to "None",
+                    ForceAllowCondition.BREATHING to "Do breathing exercise",
+                    ForceAllowCondition.WAIT to "Wait for 60 seconds",
+                    ForceAllowCondition.NECK to "Neck exercise"
+                ).forEach { (condition, label) ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { onSelected(condition) }.padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(selected = selected == condition, onClick = null)
+                        Text(label, modifier = Modifier.padding(start = 8.dp))
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
 

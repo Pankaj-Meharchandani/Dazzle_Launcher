@@ -14,12 +14,12 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
-import android.widget.Toast
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
+import android.widget.Toast
 import android.provider.CalendarContract
 import android.provider.Settings
 import android.graphics.Bitmap
@@ -51,6 +51,10 @@ enum class WidgetType {
 
 enum class IconShape {
     HEX, SQUIRCLE, ROUND, SQUARE, OCTAGON
+}
+
+enum class ForceAllowCondition {
+    NONE, BREATHING, WAIT, NECK
 }
 
 data class AppUsageInfo(
@@ -178,6 +182,18 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     private val _blockedApps = MutableStateFlow<Set<String>>(emptySet())
     val blockedApps: StateFlow<Set<String>> = _blockedApps.asStateFlow()
+
+    private val _forceAllowEnabled = MutableStateFlow(prefs.getBoolean("force_allow_enabled", false))
+    val forceAllowEnabled: StateFlow<Boolean> = _forceAllowEnabled.asStateFlow()
+
+    private val _forceAllowCondition = MutableStateFlow(
+        runCatching {
+            ForceAllowCondition.valueOf(
+                prefs.getString("force_allow_condition", ForceAllowCondition.NONE.name)!!
+            )
+        }.getOrDefault(ForceAllowCondition.NONE)
+    )
+    val forceAllowCondition: StateFlow<ForceAllowCondition> = _forceAllowCondition.asStateFlow()
 
     private val _selectedDate = MutableStateFlow(Calendar.getInstance())
     val selectedDate: StateFlow<Calendar> = _selectedDate.asStateFlow()
@@ -750,6 +766,16 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         updateBlockedAppsForCurrentTime()
     }
 
+    fun setForceAllowEnabled(enabled: Boolean) {
+        _forceAllowEnabled.value = enabled
+        prefs.edit().putBoolean("force_allow_enabled", enabled).apply()
+    }
+
+    fun setForceAllowCondition(condition: ForceAllowCondition) {
+        _forceAllowCondition.value = condition
+        prefs.edit().putString("force_allow_condition", condition.name).apply()
+    }
+
     private fun isToday(calendar: Calendar): Boolean {
         val today = Calendar.getInstance()
         return calendar.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
@@ -767,14 +793,14 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun launchApp(context: Context, packageName: String) {
+    fun isAppBlocked(packageName: String): Boolean {
         updateBlockedAppsForCurrentTime()
-        if (packageName in _blockedApps.value) {
-            Toast.makeText(
-                context,
-                "This app is blocked during scheduled hours",
-                Toast.LENGTH_SHORT
-            ).show()
+        return packageName in _blockedApps.value
+    }
+
+    fun launchApp(context: Context, packageName: String, ignoreBlock: Boolean = false) {
+        if (!ignoreBlock && isAppBlocked(packageName)) {
+            Toast.makeText(context, "This app is blocked during scheduled hours", Toast.LENGTH_SHORT).show()
             return
         }
         val intent = packageManager.getLaunchIntentForPackage(packageName)

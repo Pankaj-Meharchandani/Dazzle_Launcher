@@ -183,6 +183,8 @@ fun LauncherRoot(
     val limitedApps by viewModel.limitedApps.collectAsState()
     val appBlockStart by viewModel.appBlockStart.collectAsState()
     val appBlockEnd by viewModel.appBlockEnd.collectAsState()
+    val forceAllowEnabled by viewModel.forceAllowEnabled.collectAsState()
+    val forceAllowCondition by viewModel.forceAllowCondition.collectAsState()
     val context = LocalContext.current
     val effectiveDarkText = shouldUseDarkText || (!useWallpaper && !isSystemInDarkTheme())
 
@@ -252,6 +254,7 @@ fun LauncherRoot(
     var showSelectiveShuffle by remember { mutableStateOf(false) }
     var pendingWidgetId by remember { mutableIntStateOf(AppWidgetManager.INVALID_APPWIDGET_ID) }
     var replacingWidgetId by remember { mutableIntStateOf(AppWidgetManager.INVALID_APPWIDGET_ID) }
+    var forceAllowPackage by remember { mutableStateOf<String?>(null) }
 
     fun commitWidget() {
         if (replacingWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
@@ -326,6 +329,8 @@ fun LauncherRoot(
             limitedApps = limitedApps,
             appBlockStart = appBlockStart,
             appBlockEnd = appBlockEnd,
+            forceAllowEnabled = forceAllowEnabled,
+            forceAllowCondition = forceAllowCondition,
             onModeChange = { viewModel.setMode(it) },
             onShuffleTypeChange = { viewModel.setShuffleType(it) },
             onOpenSelectiveShuffle = { showSelectiveShuffle = true },
@@ -340,6 +345,8 @@ fun LauncherRoot(
             onPostureQuietHoursChange = { start, end -> viewModel.setPostureQuietHours(start, end, context) },
             onToggleLimitedApp = { viewModel.toggleLimitedApp(it) },
             onAppBlockHoursChange = { start, end -> viewModel.setAppBlockHours(start, end) },
+            onForceAllowToggle = { viewModel.setForceAllowEnabled(it) },
+            onForceAllowConditionChange = { viewModel.setForceAllowCondition(it) },
             onOpenGuide = {
                 showSettings = false
                 showOnboarding = true
@@ -357,8 +364,12 @@ fun LauncherRoot(
                         dockApps = dockApps,
                         isExpanded = scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded,
                         onAppClick = { pkg ->
-                            viewModel.launchApp(context, pkg)
-                            scope.launch { scaffoldState.bottomSheetState.partialExpand() }
+                            if (viewModel.isAppBlocked(pkg) && forceAllowEnabled) {
+                                forceAllowPackage = pkg
+                            } else {
+                                viewModel.launchApp(context, pkg)
+                                scope.launch { scaffoldState.bottomSheetState.partialExpand() }
+                            }
                         },
                         onToggleHome = { viewModel.toggleHomeApp(it) },
                         shouldUseDarkText = shouldUseDarkText,
@@ -405,7 +416,13 @@ fun LauncherRoot(
                 HomeScreen(
                     apps = homeApps,
                     dockApps = dockApps,
-                    onAppClick = { pkg -> viewModel.launchApp(context, pkg) },
+                    onAppClick = { pkg ->
+                        if (viewModel.isAppBlocked(pkg) && forceAllowEnabled) {
+                            forceAllowPackage = pkg
+                        } else {
+                            viewModel.launchApp(context, pkg)
+                        }
+                    },
                     onOpenSettings = { showSettings = true },
                     isDefault = isDefault,
                     onSetDefault = {
@@ -460,6 +477,17 @@ fun LauncherRoot(
                 )
             }
         }
+    }
+
+    forceAllowPackage?.let { packageName ->
+        ForceAllowFlow(
+            condition = forceAllowCondition,
+            onOpenAnyway = {
+                forceAllowPackage = null
+                viewModel.launchApp(context, packageName, ignoreBlock = true)
+            },
+            onDismiss = { forceAllowPackage = null }
+        )
     }
 
     if (showOnboarding) {
