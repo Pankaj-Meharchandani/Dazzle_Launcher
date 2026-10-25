@@ -112,9 +112,18 @@ fun HomeScreen(
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val totalHeight = maxHeight
-        // Reserve height for: Top padding (80), Banner (~60), Clock area (~120), Dock area (~150), bottom padding (16)
-        val reservedHeight = 80.dp + (if (!isDefault) 60.dp else 0.dp) + 120.dp + 150.dp + 16.dp
-        val pagerHeight = totalHeight - reservedHeight
+        // Keep the bottom dock only when there is room for at least two complete app rows.
+        val headerReservedHeight = 80.dp + (if (!isDefault) 60.dp else 0.dp) + 120.dp + 44.dp
+        val indicatorReservedHeight = 24.dp + 16.dp
+        val normalPagerHeight = totalHeight - (
+            80.dp + (if (!isDefault) 60.dp else 0.dp) + 120.dp + 150.dp + 16.dp
+        )
+        val useSideDock = maxWidth > maxHeight && normalPagerHeight < 210.dp
+        val pagerHeight = if (useSideDock) {
+            totalHeight - headerReservedHeight - indicatorReservedHeight
+        } else {
+            normalPagerHeight
+        }
         val rows = (pagerHeight.value / 105).toInt().coerceIn(1, 6)
         val itemsPerPage = rows * 4
         // Widgets consume the same row units as apps on the first app page.
@@ -135,8 +144,9 @@ fun HomeScreen(
             widgetEditMode = false
         }
 
-        Column(
-            modifier = Modifier
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(Unit) {
                     var totalDrag = 0f
@@ -166,7 +176,8 @@ fun HomeScreen(
                     }
                 }
                 .padding(top = 80.dp)
-        ) {
+                .then(if (useSideDock) Modifier.padding(end = 90.dp) else Modifier)
+            ) {
             if (!isDefault) {
                 Surface(
                     modifier = Modifier
@@ -246,98 +257,102 @@ fun HomeScreen(
             
             Spacer(modifier = Modifier.height(44.dp))
 
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.weight(1f).fillMaxWidth().clipToBounds(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
-                pageSpacing = 16.dp,
-                beyondViewportPageCount = 1
-            ) { page ->
-                if (page == 0) {
-                    ScreentimePage(viewModel = viewModel, shouldUseDarkText = effectiveDarkText, useWallpaper = useWallpaper, iconShape = iconShape)
-                } else {
-                    val appPage = page - 1
-                    val startIdx = if (appPage == 0) 0 else firstPageItems + (appPage - 1) * itemsPerPage
-                    val pageCapacity = if (appPage == 0) firstPageItems else itemsPerPage
-                    val endIdx = minOf(startIdx + pageCapacity, apps.size)
-                    val pageApps = if (apps.isEmpty()) emptyList() else apps.subList(startIdx, endIdx)
-                    val appRowsOnPage = (pageApps.size + 3) / 4
-                    
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        if (appPage == 0) {
-                            HomeWidgets(
-                                widgets = homeWidgets,
-                                widgetHost = widgetHost,
-                                widgetManager = widgetManager,
-                                editMode = widgetEditMode,
-                                onEditModeChange = { widgetEditMode = it },
-                                onReplaceWidget = onReplaceWidget,
-                                onRemoveWidget = onRemoveWidget,
-                                onResizeWidget = onResizeWidget,
-                                onMoveWidget = onMoveWidget
-                            )
+            Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.weight(1f).fillMaxWidth().clipToBounds(),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                        pageSpacing = 16.dp,
+                        beyondViewportPageCount = 1
+                    ) { page ->
+                        if (page == 0) {
+                            ScreentimePage(viewModel = viewModel, shouldUseDarkText = effectiveDarkText, useWallpaper = useWallpaper, iconShape = iconShape)
+                        } else {
+                            val appPage = page - 1
+                            val startIdx = if (appPage == 0) 0 else firstPageItems + (appPage - 1) * itemsPerPage
+                            val pageCapacity = if (appPage == 0) firstPageItems else itemsPerPage
+                            val endIdx = minOf(startIdx + pageCapacity, apps.size)
+                            val pageApps = if (apps.isEmpty()) emptyList() else apps.subList(startIdx, endIdx)
+                            val appRowsOnPage = (pageApps.size + 3) / 4
+
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                if (appPage == 0) {
+                                    HomeWidgets(
+                                        widgets = homeWidgets,
+                                        widgetHost = widgetHost,
+                                        widgetManager = widgetManager,
+                                        editMode = widgetEditMode,
+                                        onEditModeChange = { widgetEditMode = it },
+                                        onReplaceWidget = onReplaceWidget,
+                                        onRemoveWidget = onRemoveWidget,
+                                        onResizeWidget = onResizeWidget,
+                                        onMoveWidget = onMoveWidget
+                                    )
+                                }
+                                LazyVerticalGrid(
+                                    columns = GridCells.Fixed(4),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height((appRowsOnPage * 105).dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                    userScrollEnabled = false,
+                                    contentPadding = PaddingValues(bottom = 16.dp)
+                                ) {
+                                    items(
+                                        items = pageApps,
+                                        key = { it.key }
+                                    ) { app ->
+                                        AppItem(
+                                            app = app,
+                                            onClick = onAppClick,
+                                            onLongClick = { onToggleDock(app) },
+                                            labelColor = if (effectiveDarkText) Color.Black else Color.White,
+                                            iconShape = iconShape,
+                                            isBlocked = app.packageName in blockedApps
+                                        )
+                                    }
+                                }
+                            }
                         }
-                        LazyVerticalGrid(
-                            columns = GridCells.Fixed(4),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height((appRowsOnPage * 105).dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            userScrollEnabled = false,
-                            contentPadding = PaddingValues(bottom = 16.dp)
-                        ) {
-                            items(
-                                items = pageApps,
-                                key = { it.key }
-                            ) { app ->
-                                AppItem(
-                                    app = app,
-                                    onClick = onAppClick,
-                                    onLongClick = { onToggleDock(app) },
-                                    labelColor = if (effectiveDarkText) Color.Black else Color.White,
-                                    iconShape = iconShape,
-                                    isBlocked = app.packageName in blockedApps
+                    }
+
+                    // Indicator
+                    Row(
+                        modifier = Modifier.fillMaxWidth().height(24.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        repeat(pagerState.pageCount) { iteration ->
+                            val color = if (pagerState.currentPage == iteration)
+                                MaterialTheme.colorScheme.primary else (if (effectiveDarkText) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.4f))
+
+                            if (iteration == 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .padding(horizontal = 4.dp)
+                                        .clip(RoundedCornerShape(2.dp))
+                                        .background(color)
+                                        .size(width = 12.dp, height = 4.dp)
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .padding(3.dp)
+                                        .clip(CircleShape)
+                                        .background(color)
+                                        .size(6.dp)
                                 )
                             }
                         }
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
+
             }
 
-            // Indicator
-            Row(
-                modifier = Modifier.fillMaxWidth().height(24.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                repeat(pagerState.pageCount) { iteration ->
-                    val color = if (pagerState.currentPage == iteration) 
-                        MaterialTheme.colorScheme.primary else (if (effectiveDarkText) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.4f))
-                    
-                    if (iteration == 0) {
-                        Box(
-                            modifier = Modifier
-                                .padding(horizontal = 4.dp)
-                                .clip(RoundedCornerShape(2.dp))
-                                .background(color)
-                                .size(width = 12.dp, height = 4.dp)
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .padding(3.dp)
-                                .clip(CircleShape)
-                                .background(color)
-                                .size(6.dp)
-                        )
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-
-            if (pagerState.currentPage == 0) {
+            if (!useSideDock && pagerState.currentPage == 0) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -469,7 +484,7 @@ fun HomeScreen(
                         )
                     }
                 }
-            } else {
+            } else if (!useSideDock) {
                 Dock(
                     apps = dockApps,
                     onAppClick = onAppClick,
@@ -479,7 +494,64 @@ fun HomeScreen(
                     blockedApps = blockedApps
                 )
             }
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            if (useSideDock) {
+                VerticalDock(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(top = 80.dp, bottom = 16.dp),
+                    apps = dockApps,
+                    onAppClick = onAppClick,
+                    onLongClick = onToggleDock,
+                    iconShape = iconShape,
+                    blurDrawer = blurDrawer,
+                    blockedApps = blockedApps
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun VerticalDock(
+    modifier: Modifier = Modifier,
+    apps: List<AppInfo>,
+    onAppClick: (String) -> Unit,
+    onLongClick: (AppInfo) -> Unit,
+    iconShape: IconShape,
+    blurDrawer: Boolean,
+    blockedApps: Set<String>
+) {
+    val scale = if (apps.size >= 5) 0.62f else 0.72f
+
+    Surface(
+        modifier = modifier
+            .width(82.dp)
+            .fillMaxHeight()
+            .padding(end = 8.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = if (blurDrawer) 0.4f else 0.9f),
+        shape = RoundedCornerShape(28.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceEvenly
+        ) {
+            apps.forEach { app ->
+                Box(modifier = Modifier.scale(scale)) {
+                    AppItem(
+                        app = app,
+                        onClick = onAppClick,
+                        onLongClick = { onLongClick(app) },
+                        showLabel = false,
+                        iconShape = iconShape,
+                        isBlocked = app.packageName in blockedApps
+                    )
+                }
+            }
         }
     }
 }
