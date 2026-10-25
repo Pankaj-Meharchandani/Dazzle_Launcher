@@ -128,7 +128,11 @@ fun ScreentimePage(viewModel: LauncherViewModel, shouldUseDarkText: Boolean, use
                     border = BorderStroke(1.dp, contentColor.copy(alpha = 0.1f))
                 ) {
                     Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Total Time Today", style = MaterialTheme.typography.labelLarge, color = contentColor.copy(alpha = 0.7f))
+                        Text(
+                            text = if (isToday(selectedDate)) "Total Time Today" else "Total Time",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = contentColor.copy(alpha = 0.7f)
+                        )
                         Text(
                             text = formatDuration(totalTime),
                             style = MaterialTheme.typography.displayMedium,
