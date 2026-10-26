@@ -33,6 +33,11 @@
                 android:value="Posture detection using rotation sensor to alert user about neck strain." />
         </service>
 
+        <receiver
+            android:name=".MindlessScrollActionReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
 
         <activity
             android:name=".MainActivity"

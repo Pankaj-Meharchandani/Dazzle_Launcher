@@ -340,26 +340,32 @@ fun SettingsScreen(
                     onCheckedChange = onMindlessScrollToggle
                 )
                 if (mindlessScrollEnabled) {
+                    val sliderPosition = if (mindlessScrollMinutes == 1) {
+                        0f
+                    } else {
+                        (1 + ((mindlessScrollMinutes - 15) / 5)).toFloat()
+                    }
                     Text(
                         "Nudge after ${mindlessScrollMinutes} minutes",
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
                     Slider(
-                        value = mindlessScrollMinutes.toFloat(),
+                        value = sliderPosition,
                         onValueChange = {
-                            val snapped = (it / 5f).toInt() * 5
-                            onMindlessScrollMinutesChange(snapped.coerceIn(15, 60))
+                            val position = it.toInt().coerceIn(0, 10)
+                            val minutes = if (position == 0) 1 else 15 + ((position - 1) * 5)
+                            onMindlessScrollMinutesChange(minutes)
                         },
-                        valueRange = 15f..60f,
-                        steps = 8,
+                        valueRange = 0f..10f,
+                        steps = 9,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("15 min", style = MaterialTheme.typography.labelSmall)
+                        Text("1 min (test)", style = MaterialTheme.typography.labelSmall)
                         Text("1 hour", style = MaterialTheme.typography.labelSmall)
                     }
                     SettingsClickableItem(

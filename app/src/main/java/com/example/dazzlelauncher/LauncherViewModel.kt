@@ -7,6 +7,7 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Notification
+import android.app.PendingIntent
 import android.app.WallpaperColors
 import android.app.WallpaperManager
 import android.app.usage.UsageEvents
@@ -202,7 +203,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     val mindlessScrollEnabled: StateFlow<Boolean> = _mindlessScrollEnabled.asStateFlow()
 
     private val _mindlessScrollMinutes = MutableStateFlow(
-        prefs.getInt("mindless_scroll_minutes", 30).coerceIn(15, 60)
+        prefs.getInt("mindless_scroll_minutes", 30).coerceIn(1, 60)
     )
     val mindlessScrollMinutes: StateFlow<Int> = _mindlessScrollMinutes.asStateFlow()
 
@@ -812,7 +813,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun setMindlessScrollMinutes(minutes: Int) {
-        val value = minutes.coerceIn(15, 60)
+        val value = minutes.coerceIn(1, 60)
         _mindlessScrollMinutes.value = value
         prefs.edit().putInt("mindless_scroll_minutes", value).apply()
     }
@@ -861,6 +862,14 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             mindlessNotifiedForSession = false
         }
         val thresholdReached = now - mindlessLastSwitchAt >= _mindlessScrollMinutes.value * 60_000L
+        val snoozedUntil = context.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
+            .getLong("mindless_scroll_snoozed_until", 0L)
+        if (now < snoozedUntil) return
+        if (snoozedUntil > 0L) {
+            context.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
+                .edit().remove("mindless_scroll_snoozed_until").apply()
+            mindlessNotifiedForSession = false
+        }
         if (thresholdReached && !mindlessNotifiedForSession && currentPackage in _mindlessScrollApps.value) {
             mindlessNotifiedForSession = true
             postMindlessNudge(context, currentPackage!!)
@@ -871,23 +880,52 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val channelId = "mindless_scroll"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            manager.createNotificationChannel(
-                NotificationChannel(channelId, "Mindless scroll nudges", NotificationManager.IMPORTANCE_DEFAULT)
+            val channel = NotificationChannel(
+                channelId,
+                "Mindless scroll nudges",
+                NotificationManager.IMPORTANCE_HIGH
             )
+            channel.enableVibration(true)
+            channel.vibrationPattern = longArrayOf(0L, 120L, 80L, 120L)
+            manager.createNotificationChannel(channel)
         }
         val appName = runCatching {
             packageManager.getApplicationLabel(packageManager.getApplicationInfo(packageName, 0)).toString()
         }.getOrDefault("This app")
-        val notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (MindlessScrollNudge.show(context, appName)) {
+            return
+        }
+        val snoozeIntent = PendingIntent.getBroadcast(
+            context,
+            7022,
+            Intent(context, MindlessScrollActionReceiver::class.java).setAction(MindlessScrollActionReceiver.ACTION_SNOOZE),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val closeIntent = PendingIntent.getBroadcast(
+            context,
+            7023,
+            Intent(context, MindlessScrollActionReceiver::class.java).setAction(MindlessScrollActionReceiver.ACTION_CLOSE),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(context, channelId)
         } else {
             @Suppress("DEPRECATION")
             Notification.Builder(context)
-        }.setSmallIcon(android.R.drawable.ic_dialog_info)
+        }
+        builder.setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle("Take a mindful pause")
             .setContentText("You have been scrolling $appName for a while. Want to take a short break?")
             .setAutoCancel(true)
-            .build()
+            .setCategory(Notification.CATEGORY_REMINDER)
+            .setVibrate(longArrayOf(0L, 120L, 80L, 120L))
+            .setOnlyAlertOnce(true)
+            .addAction(Notification.Action.Builder(null, "+5 mins", snoozeIntent).build())
+            .addAction(Notification.Action.Builder(null, "Close app", closeIntent).build())
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            builder.setPriority(Notification.PRIORITY_HIGH)
+        }
+        val notification = builder.build()
         manager.notify(7021, notification)
     }
 
