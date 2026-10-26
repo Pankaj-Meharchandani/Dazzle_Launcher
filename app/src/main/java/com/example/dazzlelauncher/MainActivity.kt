@@ -60,6 +60,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val packageReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_PACKAGE_ADDED,
+                Intent.ACTION_PACKAGE_REMOVED,
+                Intent.ACTION_PACKAGE_CHANGED,
+                Intent.ACTION_PACKAGE_REPLACED -> viewModel.loadApps()
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         appWidgetHost = AppWidgetHost(this, 0xDA22)
@@ -77,6 +88,19 @@ class MainActivity : ComponentActivity() {
             registerReceiver(unlockReceiver, filter, RECEIVER_EXPORTED)
         } else {
             registerReceiver(unlockReceiver, filter)
+        }
+
+        val packageFilter = IntentFilter().apply {
+            addAction(Intent.ACTION_PACKAGE_ADDED)
+            addAction(Intent.ACTION_PACKAGE_REMOVED)
+            addAction(Intent.ACTION_PACKAGE_CHANGED)
+            addAction(Intent.ACTION_PACKAGE_REPLACED)
+            addDataScheme("package")
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(packageReceiver, packageFilter, RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(packageReceiver, packageFilter)
         }
 
         setContent {
@@ -145,12 +169,17 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        // The app list is populated at startup, but installs can complete while
+        // the launcher is in the background. Refresh it whenever we return so
+        // newly installed apps appear in the drawer immediately.
+        viewModel.loadApps()
         viewModel.checkDefaultLauncher(this)
     }
 
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(unlockReceiver)
+        unregisterReceiver(packageReceiver)
     }
 }
 
