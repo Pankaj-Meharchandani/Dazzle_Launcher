@@ -4,6 +4,9 @@ import android.Manifest
 import android.app.AlarmManager
 import android.app.AppOpsManager
 import android.app.Application
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Notification
 import android.app.WallpaperColors
 import android.app.WallpaperManager
 import android.app.usage.UsageEvents
@@ -195,6 +198,30 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     )
     val forceAllowCondition: StateFlow<ForceAllowCondition> = _forceAllowCondition.asStateFlow()
 
+    private val _mindlessScrollEnabled = MutableStateFlow(prefs.getBoolean("mindless_scroll_enabled", false))
+    val mindlessScrollEnabled: StateFlow<Boolean> = _mindlessScrollEnabled.asStateFlow()
+
+    private val _mindlessScrollMinutes = MutableStateFlow(
+        prefs.getInt("mindless_scroll_minutes", 30).coerceIn(15, 60)
+    )
+    val mindlessScrollMinutes: StateFlow<Int> = _mindlessScrollMinutes.asStateFlow()
+
+    private val _mindlessScrollApps = MutableStateFlow<Set<String>>(
+        prefs.getStringSet("mindless_scroll_apps", emptySet()) ?: emptySet()
+    )
+    val mindlessScrollApps: StateFlow<Set<String>> = _mindlessScrollApps.asStateFlow()
+
+    private val mindlessHandler = Handler(Looper.getMainLooper())
+    private var mindlessLastPackage: String? = null
+    private var mindlessLastSwitchAt = 0L
+    private var mindlessNotifiedForSession = false
+    private val mindlessMonitor = object : Runnable {
+        override fun run() {
+            checkMindlessScroll()
+            mindlessHandler.postDelayed(this, 15_000L)
+        }
+    }
+
     private val _selectedDate = MutableStateFlow(Calendar.getInstance())
     val selectedDate: StateFlow<Calendar> = _selectedDate.asStateFlow()
 
@@ -210,6 +237,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         fetchCalendarEvent()
         updatePostureService(getApplication())
         loadUnlockCount()
+        mindlessHandler.post(mindlessMonitor)
     }
 
     fun loadUnlockCount() {
@@ -397,6 +425,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     override fun onCleared() {
         super.onCleared()
+        mindlessHandler.removeCallbacks(mindlessMonitor)
         wallpaperManager.removeOnColorsChangedListener(wallpaperColorsListener)
         getApplication<Application>().unregisterReceiver(batteryReceiver)
     }
@@ -774,6 +803,92 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun setForceAllowCondition(condition: ForceAllowCondition) {
         _forceAllowCondition.value = condition
         prefs.edit().putString("force_allow_condition", condition.name).apply()
+    }
+
+    fun setMindlessScrollEnabled(enabled: Boolean) {
+        _mindlessScrollEnabled.value = enabled
+        prefs.edit().putBoolean("mindless_scroll_enabled", enabled).apply()
+        if (!enabled) resetMindlessSession()
+    }
+
+    fun setMindlessScrollMinutes(minutes: Int) {
+        val value = minutes.coerceIn(15, 60)
+        _mindlessScrollMinutes.value = value
+        prefs.edit().putInt("mindless_scroll_minutes", value).apply()
+    }
+
+    fun toggleMindlessScrollApp(app: AppInfo) {
+        val updated = _mindlessScrollApps.value.toMutableSet()
+        if (!updated.add(app.packageName)) updated.remove(app.packageName)
+        _mindlessScrollApps.value = updated
+        prefs.edit().putStringSet("mindless_scroll_apps", updated).apply()
+        resetMindlessSession()
+    }
+
+    private fun resetMindlessSession() {
+        mindlessLastPackage = null
+        mindlessLastSwitchAt = 0L
+        mindlessNotifiedForSession = false
+    }
+
+    private fun checkMindlessScroll() {
+        val context = getApplication<Application>()
+        if (!_mindlessScrollEnabled.value || _mindlessScrollApps.value.isEmpty() || !hasUsageAccess(context)) {
+            return
+        }
+        val manager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        val now = System.currentTimeMillis()
+        val events = manager.queryEvents(now - 2 * 60 * 60 * 1000L, now)
+        var currentPackage: String? = null
+        var currentPackageStarted = 0L
+        while (events.hasNextEvent()) {
+            val event = UsageEvents.Event()
+            events.getNextEvent(event)
+            if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED) {
+                if (event.packageName != currentPackage) {
+                    currentPackage = event.packageName
+                    currentPackageStarted = event.timeStamp
+                }
+            }
+        }
+        if (currentPackage == null || currentPackage == context.packageName) {
+            resetMindlessSession()
+            return
+        }
+        if (currentPackage != mindlessLastPackage) {
+            mindlessLastPackage = currentPackage
+            mindlessLastSwitchAt = currentPackageStarted
+            mindlessNotifiedForSession = false
+        }
+        val thresholdReached = now - mindlessLastSwitchAt >= _mindlessScrollMinutes.value * 60_000L
+        if (thresholdReached && !mindlessNotifiedForSession && currentPackage in _mindlessScrollApps.value) {
+            mindlessNotifiedForSession = true
+            postMindlessNudge(context, currentPackage!!)
+        }
+    }
+
+    private fun postMindlessNudge(context: Context, packageName: String) {
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val channelId = "mindless_scroll"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            manager.createNotificationChannel(
+                NotificationChannel(channelId, "Mindless scroll nudges", NotificationManager.IMPORTANCE_DEFAULT)
+            )
+        }
+        val appName = runCatching {
+            packageManager.getApplicationLabel(packageManager.getApplicationInfo(packageName, 0)).toString()
+        }.getOrDefault("This app")
+        val notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder(context, channelId)
+        } else {
+            @Suppress("DEPRECATION")
+            Notification.Builder(context)
+        }.setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("Take a mindful pause")
+            .setContentText("You have been scrolling $appName for a while. Want to take a short break?")
+            .setAutoCancel(true)
+            .build()
+        manager.notify(7021, notification)
     }
 
     private fun isToday(calendar: Calendar): Boolean {

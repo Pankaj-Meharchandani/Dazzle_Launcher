@@ -185,6 +185,9 @@ fun LauncherRoot(
     val appBlockEnd by viewModel.appBlockEnd.collectAsState()
     val forceAllowEnabled by viewModel.forceAllowEnabled.collectAsState()
     val forceAllowCondition by viewModel.forceAllowCondition.collectAsState()
+    val mindlessScrollEnabled by viewModel.mindlessScrollEnabled.collectAsState()
+    val mindlessScrollMinutes by viewModel.mindlessScrollMinutes.collectAsState()
+    val mindlessScrollApps by viewModel.mindlessScrollApps.collectAsState()
     val context = LocalContext.current
     val effectiveDarkText = shouldUseDarkText || (!useWallpaper && !isSystemInDarkTheme())
 
@@ -333,6 +336,9 @@ fun LauncherRoot(
             appBlockEnd = appBlockEnd,
             forceAllowEnabled = forceAllowEnabled,
             forceAllowCondition = forceAllowCondition,
+            mindlessScrollEnabled = mindlessScrollEnabled,
+            mindlessScrollMinutes = mindlessScrollMinutes,
+            mindlessScrollApps = mindlessScrollApps,
             onModeChange = { viewModel.setMode(it) },
             onShuffleTypeChange = { viewModel.setShuffleType(it) },
             onOpenSelectiveShuffle = { showSelectiveShuffle = true },
@@ -349,6 +355,16 @@ fun LauncherRoot(
             onAppBlockHoursChange = { start, end -> viewModel.setAppBlockHours(start, end) },
             onForceAllowToggle = { viewModel.setForceAllowEnabled(it) },
             onForceAllowConditionChange = { viewModel.setForceAllowCondition(it) },
+            onMindlessScrollToggle = { enabled ->
+                if (enabled && !viewModel.hasUsageAccess(context)) {
+                    viewModel.setMindlessScrollEnabled(true)
+                    viewModel.openUsageSettings(context)
+                } else {
+                    viewModel.setMindlessScrollEnabled(enabled)
+                }
+            },
+            onMindlessScrollMinutesChange = { viewModel.setMindlessScrollMinutes(it) },
+            onToggleMindlessScrollApp = { viewModel.toggleMindlessScrollApp(it) },
             onOpenGuide = {
                 showSettings = false
                 showOnboarding = true

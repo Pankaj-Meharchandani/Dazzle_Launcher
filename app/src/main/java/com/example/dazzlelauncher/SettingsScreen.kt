@@ -51,6 +51,9 @@ fun SettingsScreen(
     appBlockEnd: String,
     forceAllowEnabled: Boolean,
     forceAllowCondition: ForceAllowCondition,
+    mindlessScrollEnabled: Boolean,
+    mindlessScrollMinutes: Int,
+    mindlessScrollApps: Set<String>,
     onModeChange: (LauncherMode) -> Unit,
     onShuffleTypeChange: (ShuffleType) -> Unit,
     onOpenSelectiveShuffle: () -> Unit,
@@ -67,6 +70,9 @@ fun SettingsScreen(
     onAppBlockHoursChange: (String, String) -> Unit,
     onForceAllowToggle: (Boolean) -> Unit,
     onForceAllowConditionChange: (ForceAllowCondition) -> Unit,
+    onMindlessScrollToggle: (Boolean) -> Unit,
+    onMindlessScrollMinutesChange: (Int) -> Unit,
+    onToggleMindlessScrollApp: (AppInfo) -> Unit,
     onOpenGuide: () -> Unit,
     onClose: () -> Unit
 ) {
@@ -75,6 +81,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     var showLimitedAppsDialog by remember { mutableStateOf(false) }
     var showForceAllowConditionDialog by remember { mutableStateOf(false) }
+    var showMindlessScrollAppsDialog by remember { mutableStateOf(false) }
     val overlayPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
@@ -318,6 +325,54 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            SettingsSection(title = "Mindless Scroll Detector") {
+                Text(
+                    "Get a gentle reminder when you stay in a selected app without switching for too long.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+                SettingsToggleItem(
+                    icon = Icons.Default.Spa,
+                    title = "Mindless scroll nudges",
+                    description = "Remind me to take a mindful pause",
+                    checked = mindlessScrollEnabled,
+                    onCheckedChange = onMindlessScrollToggle
+                )
+                if (mindlessScrollEnabled) {
+                    Text(
+                        "Nudge after ${mindlessScrollMinutes} minutes",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                    Slider(
+                        value = mindlessScrollMinutes.toFloat(),
+                        onValueChange = {
+                            val snapped = (it / 5f).toInt() * 5
+                            onMindlessScrollMinutesChange(snapped.coerceIn(15, 60))
+                        },
+                        valueRange = 15f..60f,
+                        steps = 8,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("15 min", style = MaterialTheme.typography.labelSmall)
+                        Text("1 hour", style = MaterialTheme.typography.labelSmall)
+                    }
+                    SettingsClickableItem(
+                        icon = Icons.Default.Apps,
+                        title = "Select apps",
+                        value = if (mindlessScrollApps.isEmpty()) "No apps selected" else "${mindlessScrollApps.size} app(s) selected",
+                        onClick = { showMindlessScrollAppsDialog = true }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             SettingsSection(title = "App Limits") {
                 Text(
                     "Selected apps are greyed out and blocked during the hours you choose.",
@@ -407,6 +462,47 @@ fun SettingsScreen(
             onDismiss = { showForceAllowConditionDialog = false }
         )
     }
+    if (showMindlessScrollAppsDialog) {
+        MindlessScrollAppsDialog(
+            apps = allApps,
+            selectedPackages = mindlessScrollApps,
+            onToggle = onToggleMindlessScrollApp,
+            onDismiss = { showMindlessScrollAppsDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun MindlessScrollAppsDialog(
+    apps: List<AppInfo>,
+    selectedPackages: Set<String>,
+    onToggle: (AppInfo) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Apps to monitor") },
+        text = {
+            LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
+                items(apps.distinctBy { it.packageName }, key = { it.packageName }) { app ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { onToggle(app) }.padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        app.icon?.let { icon ->
+                            androidx.compose.foundation.Image(icon, null, Modifier.size(40.dp))
+                        }
+                        Text(app.label, modifier = Modifier.weight(1f).padding(horizontal = 12.dp))
+                        Checkbox(
+                            checked = app.packageName in selectedPackages,
+                            onCheckedChange = { onToggle(app) }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } }
+    )
 }
 
 @Composable
