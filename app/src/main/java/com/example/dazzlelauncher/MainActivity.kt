@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProviderInfo
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -23,20 +24,30 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.graphics.drawable.toBitmap
 import com.example.dazzlelauncher.ui.theme.DazzleLauncherTheme
 import kotlinx.coroutines.launch
 
@@ -289,6 +300,7 @@ fun LauncherRoot(
     var pendingWidgetId by remember { mutableIntStateOf(AppWidgetManager.INVALID_APPWIDGET_ID) }
     var replacingWidgetId by remember { mutableIntStateOf(AppWidgetManager.INVALID_APPWIDGET_ID) }
     var forceAllowPackage by remember { mutableStateOf<String?>(null) }
+    var showWidgetPicker by remember { mutableStateOf(false) }
 
     fun commitWidget() {
         if (replacingWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
@@ -327,6 +339,29 @@ fun LauncherRoot(
         }
     }
 
+    fun selectWidgetProvider(provider: AppWidgetProviderInfo) {
+        showWidgetPicker = false
+        val bound = runCatching {
+            widgetManager.bindAppWidgetIdIfAllowed(pendingWidgetId, provider.provider)
+        }.getOrDefault(false)
+        if (bound) {
+            val info = widgetManager.getAppWidgetInfo(pendingWidgetId)
+            if (info?.configure != null) {
+                onConfigureWidget(pendingWidgetId, replacingWidgetId)
+                pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+                replacingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+            } else {
+                commitWidget()
+            }
+        } else {
+            widgetPickerLauncher.launch(
+                Intent(AppWidgetManager.ACTION_APPWIDGET_BIND)
+                    .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, pendingWidgetId)
+                    .putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER, provider.provider)
+            )
+        }
+    }
+
     BackHandler(enabled = true) {
         if (scaffoldState.bottomSheetState.currentValue == SheetValue.Expanded) {
             scope.launch { scaffoldState.bottomSheetState.partialExpand() }
@@ -334,11 +369,33 @@ fun LauncherRoot(
             showSelectiveShuffle = false
         } else if (showSettings) {
             showSettings = false
+        } else if (showWidgetPicker) {
+            showWidgetPicker = false
+            if (pendingWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                widgetHost.deleteAppWidgetId(pendingWidgetId)
+                pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+                replacingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+            }
         }
         // If already on home screen and drawer closed, do nothing (ignore back gesture)
     }
 
     val widgetType by viewModel.widgetType.collectAsState()
+
+    if (showWidgetPicker) {
+        WidgetPickerDialog(
+            widgetManager = widgetManager,
+            onSelect = ::selectWidgetProvider,
+            onDismiss = {
+                showWidgetPicker = false
+                if (pendingWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                    widgetHost.deleteAppWidgetId(pendingWidgetId)
+                    pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+                    replacingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+                }
+            }
+        )
+    }
 
     if (showSelectiveShuffle) {
         SelectiveShuffleScreen(
@@ -497,19 +554,13 @@ fun LauncherRoot(
                         val appWidgetId = widgetHost.allocateAppWidgetId()
                         replacingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
                         pendingWidgetId = appWidgetId
-                        widgetPickerLauncher.launch(
-                            Intent(AppWidgetManager.ACTION_APPWIDGET_PICK)
-                                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                        )
+                        showWidgetPicker = true
                     },
                     onReplaceWidget = { oldWidgetId ->
                         val appWidgetId = widgetHost.allocateAppWidgetId()
                         replacingWidgetId = oldWidgetId
                         pendingWidgetId = appWidgetId
-                        widgetPickerLauncher.launch(
-                            Intent(AppWidgetManager.ACTION_APPWIDGET_PICK)
-                                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                        )
+                        showWidgetPicker = true
                     },
                     onRemoveWidget = { appWidgetId ->
                         widgetHost.deleteAppWidgetId(appWidgetId)
@@ -565,4 +616,127 @@ fun LauncherRoot(
             onComplete = ::completeOnboarding
         )
     }
+}
+
+@Composable
+private fun WidgetPickerDialog(
+    widgetManager: AppWidgetManager,
+    onSelect: (AppWidgetProviderInfo) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var query by remember { mutableStateOf("") }
+    val providers = remember(widgetManager) {
+        widgetManager.installedProviders
+            .distinctBy { it.provider.flattenToString() }
+            .sortedWith(compareBy({ it.loadLabel(context.packageManager).toString().lowercase() }, { it.label }))
+    }
+    val filteredProviders = providers.filter { provider ->
+        val appName = runCatching {
+            context.packageManager.getApplicationLabel(
+                context.packageManager.getApplicationInfo(provider.provider.packageName, 0)
+            ).toString()
+        }.getOrDefault("")
+        val widgetName = runCatching { provider.loadLabel(context.packageManager).toString() }.getOrDefault("")
+        query.isBlank() || "$appName $widgetName".contains(query, ignoreCase = true)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.fillMaxWidth(0.94f),
+        shape = MaterialTheme.shapes.extraLarge,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        title = {
+            Column {
+                Text(
+                    text = "Add widget",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+                Text(
+                    text = "Choose something useful for your home screen",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                    singleLine = true,
+                    placeholder = { Text("Search widgets") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    shape = RoundedCornerShape(18.dp)
+                )
+            }
+        },
+        text = {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 500.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(
+                    items = filteredProviders,
+                    key = { it.provider.flattenToString() }
+                ) { provider ->
+                    val icon = remember(provider) {
+                        runCatching {
+                            provider.loadIcon(
+                                context,
+                                context.resources.displayMetrics.densityDpi
+                            )?.toBitmap(72, 72)?.asImageBitmap()
+                        }.getOrNull()
+                    }
+                    val appName = runCatching {
+                        context.packageManager.getApplicationLabel(
+                            context.packageManager.getApplicationInfo(provider.provider.packageName, 0)
+                        ).toString()
+                    }.getOrDefault("Widget")
+                    val widgetName = runCatching {
+                        provider.loadLabel(context.packageManager).toString()
+                    }.getOrDefault("Widget")
+
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().clickable { onSelect(provider) },
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainer
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(52.dp),
+                                shape = RoundedCornerShape(15.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant
+                            ) {
+                                if (icon != null) {
+                                    Image(icon, contentDescription = null, modifier = Modifier.padding(6.dp))
+                                } else {
+                                    Icon(
+                                        Icons.Default.Widgets,
+                                        contentDescription = null,
+                                        modifier = Modifier.padding(14.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                            Column(modifier = Modifier.padding(start = 14.dp).weight(1f)) {
+                                Text(widgetName, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                                Text(
+                                    appName,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1
+                                )
+                            }
+                            Icon(Icons.Default.Widgets, contentDescription = null, tint = MaterialTheme.colorScheme.outline)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }
