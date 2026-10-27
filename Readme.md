@@ -75,6 +75,13 @@ Open **Settings → Shuffling** to choose Full Shuffle or Selective Shuffle. In 
 - Choose the reminder interval from one minute for testing through one hour.
 - Snooze a scroll reminder for five minutes or return to the home screen.
 
+### Exercise and mindful pauses
+
+- Open the dedicated **Exercise** option from the home screen for a guided pause.
+- Choose between a **Breathing exercise** and a **Neck exercise**.
+- Use exercises as a force-allow condition before opening apps blocked by App Limits.
+- A blocked app can prompt you to complete the selected exercise before it opens, adding a deliberate pause to the habit loop.
+
 ## Requirements
 
 - Android 11 / API 30 or newer
