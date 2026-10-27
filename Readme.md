@@ -184,4 +184,4 @@ Issues and pull requests are welcome. For larger changes, open an issue first to
 
 ## License
 
-No license file is currently included in this repository. Until a license is added, the source should be treated as all rights reserved.
+Dazzle Launcher is licensed under the [GNU General Public License v3.0 or later](LICENSE).
