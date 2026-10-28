@@ -1,4 +1,4 @@
-package com.example.dazzlelauncher
+package com.sionque.dazzle
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme

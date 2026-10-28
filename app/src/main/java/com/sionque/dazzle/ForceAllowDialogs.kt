@@ -1,4 +1,4 @@
-package com.example.dazzlelauncher
+package com.sionque.dazzle
 
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat

@@ -1,4 +1,4 @@
-package com.example.dazzlelauncher
+package com.sionque.dazzle
 
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Outline

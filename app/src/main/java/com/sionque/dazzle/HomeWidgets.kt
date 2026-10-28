@@ -1,4 +1,4 @@
-package com.example.dazzlelauncher
+package com.sionque.dazzle
 
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager

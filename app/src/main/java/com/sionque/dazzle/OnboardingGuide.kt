@@ -1,4 +1,4 @@
-package com.example.dazzlelauncher
+package com.sionque.dazzle
 
 import android.widget.ImageView
 import android.widget.ImageView.ScaleType

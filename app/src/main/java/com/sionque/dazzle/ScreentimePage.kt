@@ -1,4 +1,4 @@
-package com.example.dazzlelauncher
+package com.sionque.dazzle
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image

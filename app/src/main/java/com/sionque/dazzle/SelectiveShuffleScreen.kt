@@ -1,4 +1,4 @@
-package com.example.dazzlelauncher
+package com.sionque.dazzle
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background

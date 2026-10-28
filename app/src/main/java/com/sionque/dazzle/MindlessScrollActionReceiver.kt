@@ -1,4 +1,4 @@
-package com.example.dazzlelauncher
+package com.sionque.dazzle
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -28,7 +28,7 @@ class MindlessScrollActionReceiver : BroadcastReceiver() {
     }
 
     companion object {
-        const val ACTION_SNOOZE = "com.example.dazzlelauncher.action.MINDLESS_SNOOZE"
-        const val ACTION_CLOSE = "com.example.dazzlelauncher.action.MINDLESS_CLOSE"
+        const val ACTION_SNOOZE = "com.sionque.dazzle.action.MINDLESS_SNOOZE"
+        const val ACTION_CLOSE = "com.sionque.dazzle.action.MINDLESS_CLOSE"
     }
 }

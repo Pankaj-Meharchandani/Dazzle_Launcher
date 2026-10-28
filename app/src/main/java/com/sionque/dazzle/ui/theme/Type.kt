@@ -1,4 +1,4 @@
-package com.example.dazzlelauncher.ui.theme
+package com.sionque.dazzle.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

@@ -1,4 +1,4 @@
-package com.example.dazzlelauncher
+package com.sionque.dazzle
 
 import android.Manifest
 import android.app.Activity
@@ -48,7 +48,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.graphics.drawable.toBitmap
-import com.example.dazzlelauncher.ui.theme.DazzleLauncherTheme
+import com.sionque.dazzle.ui.theme.DazzleLauncherTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
