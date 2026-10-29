@@ -212,6 +212,7 @@ fun LauncherRoot(
     val isDefault by viewModel.isDefault.collectAsState()
     val shouldUseDarkText by viewModel.shouldUseDarkText.collectAsState()
     val iconShape by viewModel.iconShape.collectAsState()
+    val iconSize by viewModel.iconSize.collectAsState()
     val shuffleType by viewModel.shuffleType.collectAsState()
     val homeWidgets by viewModel.homeWidgets.collectAsState()
     val postureAlertEnabled by viewModel.postureAlertEnabled.collectAsState()
@@ -411,6 +412,7 @@ fun LauncherRoot(
             is24Hour = is24Hour,
             widgetType = widgetType,
             iconShape = iconShape,
+            iconSize = iconSize,
             postureAlertEnabled = postureAlertEnabled,
             postureSensitivity = postureSensitivity,
             postureDuration = postureDuration,
@@ -433,6 +435,7 @@ fun LauncherRoot(
             onTimeFormatToggle = { viewModel.setIs24Hour(it) },
             onWidgetTypeChange = { viewModel.setWidgetType(it) },
             onIconShapeChange = { viewModel.setIconShape(it) },
+            onIconSizeChange = { viewModel.setIconSize(it) },
             onPostureAlertToggle = { viewModel.setPostureAlertEnabled(it, context) },
             onPostureSensitivityChange = { viewModel.setPostureSensitivity(it, context) },
             onPostureDurationChange = { viewModel.setPostureDuration(it, context) },
@@ -480,6 +483,7 @@ fun LauncherRoot(
                         useWallpaper = useWallpaper,
                         blurDrawer = blurDrawer,
                         iconShape = iconShape,
+                        iconSize = iconSize,
                         launcherMode = mode,
                         blockedApps = blockedApps
                     )
@@ -547,6 +551,7 @@ fun LauncherRoot(
                     useWallpaper = useWallpaper,
                     is24Hour = is24Hour,
                     iconShape = iconShape,
+                    iconSize = iconSize,
                     homeWidgets = homeWidgets,
                     widgetHost = widgetHost,
                     widgetManager = widgetManager,

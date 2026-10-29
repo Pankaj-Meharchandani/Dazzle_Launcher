@@ -62,6 +62,7 @@ fun HomeScreen(
     useWallpaper: Boolean,
     is24Hour: Boolean,
     iconShape: IconShape,
+    iconSize: IconSize,
     homeWidgets: List<HomeWidget>,
     widgetHost: AppWidgetHost,
     widgetManager: AppWidgetManager,
@@ -124,15 +125,25 @@ fun HomeScreen(
         } else {
             normalPagerHeight
         }
-        val rows = (pagerHeight.value / 105).toInt().coerceIn(1, 6)
-        val itemsPerPage = rows * 4
+        val columnCount = when (iconSize) {
+            IconSize.SMALL -> 6
+            IconSize.MEDIUM -> 5
+            IconSize.LARGE -> 4
+        }
+        val rowHeightDp = when (iconSize) {
+            IconSize.SMALL -> 78
+            IconSize.MEDIUM -> 90
+            IconSize.LARGE -> 105
+        }
+        val rows = (pagerHeight.value / rowHeightDp).toInt().coerceIn(1, 8)
+        val itemsPerPage = rows * columnCount
         // Widgets consume the same row units as apps on the first app page.
         // Apps that no longer fit continue on the next page.
         // A widget consumes exactly its configured grid rows. The 12dp gap
         // is visual spacing and must not steal an additional app row.
         val widgetRows = homeWidgets.sumOf { it.spanY }
         val firstPageRows = (rows - widgetRows).coerceAtLeast(0)
-        val firstPageItems = firstPageRows * 4
+        val firstPageItems = firstPageRows * columnCount
         val remainingApps = (apps.size - firstPageItems).coerceAtLeast(0)
         val remainingPages = if (remainingApps == 0) 0 else
             (remainingApps + itemsPerPage - 1) / itemsPerPage
@@ -274,7 +285,7 @@ fun HomeScreen(
                             val pageCapacity = if (appPage == 0) firstPageItems else itemsPerPage
                             val endIdx = minOf(startIdx + pageCapacity, apps.size)
                             val pageApps = if (apps.isEmpty()) emptyList() else apps.subList(startIdx, endIdx)
-                            val appRowsOnPage = (pageApps.size + 3) / 4
+                            val appRowsOnPage = (pageApps.size + columnCount - 1) / columnCount
 
                             Column(modifier = Modifier.fillMaxSize()) {
                                 if (appPage == 0) {
@@ -291,12 +302,18 @@ fun HomeScreen(
                                     )
                                 }
                                 LazyVerticalGrid(
-                                    columns = GridCells.Fixed(4),
+                                    columns = GridCells.Fixed(columnCount),
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height((appRowsOnPage * 105).dp),
+                                        .height((appRowsOnPage * rowHeightDp).dp),
                                     verticalArrangement = Arrangement.spacedBy(12.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(
+                                        when (iconSize) {
+                                            IconSize.SMALL -> 8.dp
+                                            IconSize.MEDIUM -> 12.dp
+                                            IconSize.LARGE -> 16.dp
+                                        }
+                                    ),
                                     userScrollEnabled = false,
                                     contentPadding = PaddingValues(bottom = 16.dp)
                                 ) {
@@ -310,6 +327,7 @@ fun HomeScreen(
                                             onLongClick = { onToggleDock(app) },
                                             labelColor = if (effectiveDarkText) Color.Black else Color.White,
                                             iconShape = iconShape,
+                                            iconSize = iconSize,
                                             isBlocked = app.packageName in blockedApps
                                         )
                                     }
@@ -490,6 +508,7 @@ fun HomeScreen(
                     onAppClick = onAppClick,
                     onLongClick = onToggleDock,
                     iconShape = iconShape,
+                    iconSize = iconSize,
                     blurDrawer = blurDrawer,
                     blockedApps = blockedApps
                 )
@@ -506,6 +525,7 @@ fun HomeScreen(
                     onAppClick = onAppClick,
                     onLongClick = onToggleDock,
                     iconShape = iconShape,
+                    iconSize = iconSize,
                     blurDrawer = blurDrawer,
                     blockedApps = blockedApps
                 )
@@ -521,6 +541,7 @@ private fun VerticalDock(
     onAppClick: (String) -> Unit,
     onLongClick: (AppInfo) -> Unit,
     iconShape: IconShape,
+    iconSize: IconSize,
     blurDrawer: Boolean,
     blockedApps: Set<String>
 ) {
@@ -548,6 +569,7 @@ private fun VerticalDock(
                         onLongClick = { onLongClick(app) },
                         showLabel = false,
                         iconShape = iconShape,
+                        iconSize = iconSize,
                         isBlocked = app.packageName in blockedApps
                     )
                 }
@@ -562,6 +584,7 @@ fun Dock(
     onAppClick: (String) -> Unit,
     onLongClick: (AppInfo) -> Unit,
     iconShape: IconShape,
+    iconSize: IconSize,
     blurDrawer: Boolean,
     blockedApps: Set<String>
 ) {
@@ -590,6 +613,7 @@ fun Dock(
                         onLongClick = { onLongClick(app) },
                         showLabel = false,
                         iconShape = iconShape,
+                        iconSize = iconSize,
                         isBlocked = app.packageName in blockedApps
                     )
                 }

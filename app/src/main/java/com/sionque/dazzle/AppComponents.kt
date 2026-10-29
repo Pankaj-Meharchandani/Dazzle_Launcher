@@ -47,10 +47,16 @@ fun AppItem(
     showLabel: Boolean = true,
     labelColor: Color = if (isSystemInDarkTheme()) Color.White else MaterialTheme.colorScheme.onSurface,
     iconShape: IconShape = IconShape.SQUARE,
+    iconSize: IconSize = IconSize.LARGE,
     isBlocked: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val shape = getIconShape(iconShape)
+    val iconDp = when (iconSize) {
+        IconSize.SMALL -> 40.dp
+        IconSize.MEDIUM -> 50.dp
+        IconSize.LARGE -> 60.dp
+    }
     Column(
         modifier = modifier
             .combinedClickable(
@@ -62,7 +68,7 @@ fun AppItem(
     ) {
         Box(
             modifier = Modifier
-                .size(60.dp)
+                .size(iconDp)
                 .clip(shape)
                 .background(
                     if (isBlocked) Color.Gray.copy(alpha = 0.7f)
@@ -84,7 +90,7 @@ fun AppItem(
         if (showLabel) {
             Text(
                 text = app.label,
-                fontSize = 11.sp,
+                fontSize = if (iconSize == IconSize.SMALL) 10.sp else 11.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,

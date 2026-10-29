@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.TimePickerDialog
 import android.content.Intent
 import android.content.pm.PackageManager
+import kotlin.math.roundToInt
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -40,6 +41,7 @@ fun SettingsScreen(
     is24Hour: Boolean,
     widgetType: WidgetType,
     iconShape: IconShape,
+    iconSize: IconSize,
     postureAlertEnabled: Boolean,
     postureSensitivity: Int,
     postureDuration: Int,
@@ -62,6 +64,7 @@ fun SettingsScreen(
     onTimeFormatToggle: (Boolean) -> Unit,
     onWidgetTypeChange: (WidgetType) -> Unit,
     onIconShapeChange: (IconShape) -> Unit,
+    onIconSizeChange: (IconSize) -> Unit,
     onPostureAlertToggle: (Boolean) -> Unit,
     onPostureSensitivityChange: (Int) -> Unit,
     onPostureDurationChange: (Int) -> Unit,
@@ -222,6 +225,54 @@ fun SettingsScreen(
                             showWidgetSelector = false 
                         },
                         onDismiss = { showWidgetSelector = false }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    "Icon Size",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+                val sliderPosition = when (iconSize) {
+                    IconSize.SMALL -> 0f
+                    IconSize.MEDIUM -> 1f
+                    IconSize.LARGE -> 2f
+                }
+                Slider(
+                    value = sliderPosition,
+                    onValueChange = { pos ->
+                        val newSize = when (pos.roundToInt().coerceIn(0, 2)) {
+                            0 -> IconSize.SMALL
+                            1 -> IconSize.MEDIUM
+                            else -> IconSize.LARGE
+                        }
+                        if (newSize != iconSize) {
+                            onIconSizeChange(newSize)
+                        }
+                    },
+                    valueRange = 0f..2f,
+                    steps = 1,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "Small (6/row)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (iconSize == IconSize.SMALL) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "Medium (5/row)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (iconSize == IconSize.MEDIUM) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "Large (4/row)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (iconSize == IconSize.LARGE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 

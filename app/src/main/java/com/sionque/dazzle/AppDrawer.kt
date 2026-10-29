@@ -34,6 +34,7 @@ fun AppDrawerContent(
     useWallpaper: Boolean,
     blurDrawer: Boolean,
     iconShape: IconShape,
+    iconSize: IconSize,
     launcherMode: LauncherMode,
     blockedApps: Set<String>
 ) {
@@ -104,13 +105,31 @@ fun AppDrawerContent(
                 Spacer(modifier = Modifier.height(12.dp))
             }
             
+            val columnCount = when (iconSize) {
+                IconSize.SMALL -> 6
+                IconSize.MEDIUM -> 5
+                IconSize.LARGE -> 4
+            }
+
             LazyVerticalGrid(
                 state = gridState,
-                columns = GridCells.Fixed(4),
+                columns = GridCells.Fixed(columnCount),
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 40.dp, top = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(32.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(
+                    when (iconSize) {
+                        IconSize.SMALL -> 20.dp
+                        IconSize.MEDIUM -> 24.dp
+                        IconSize.LARGE -> 32.dp
+                    }
+                ),
+                horizontalArrangement = Arrangement.spacedBy(
+                    when (iconSize) {
+                        IconSize.SMALL -> 8.dp
+                        IconSize.MEDIUM -> 12.dp
+                        IconSize.LARGE -> 16.dp
+                    }
+                )
             ) {
                 items(
                     items = filteredApps,
@@ -126,6 +145,7 @@ fun AppDrawerContent(
                             onLongClick = { onToggleHome(app) },
                             labelColor = labelColor, 
                             iconShape = iconShape,
+                            iconSize = iconSize,
                             isBlocked = app.packageName in blockedApps
                         )
                         

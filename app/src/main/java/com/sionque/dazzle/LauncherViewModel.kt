@@ -57,6 +57,10 @@ enum class IconShape {
     HEX, SQUIRCLE, ROUND, SQUARE, OCTAGON
 }
 
+enum class IconSize {
+    SMALL, MEDIUM, LARGE
+}
+
 enum class ForceAllowCondition {
     NONE, BREATHING, WAIT, NECK
 }
@@ -120,6 +124,13 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         IconShape.valueOf(prefs?.getString("icon_shape", IconShape.SQUARE.name) ?: IconShape.SQUARE.name)
     )
     val iconShape: StateFlow<IconShape> = _iconShape.asStateFlow()
+
+    private val _iconSize = MutableStateFlow(
+        runCatching {
+            IconSize.valueOf(prefs?.getString("icon_size", IconSize.LARGE.name) ?: IconSize.LARGE.name)
+        }.getOrDefault(IconSize.LARGE)
+    )
+    val iconSize: StateFlow<IconSize> = _iconSize.asStateFlow()
 
     private val _shuffleType = MutableStateFlow(
         ShuffleType.valueOf(prefs.getString("shuffle_type", ShuffleType.FULL.name)!!)
@@ -342,6 +353,11 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun setIconShape(shape: IconShape) {
         _iconShape.value = shape
         prefs?.edit()?.putString("icon_shape", shape.name)?.apply()
+    }
+
+    fun setIconSize(size: IconSize) {
+        _iconSize.value = size
+        prefs?.edit()?.putString("icon_size", size.name)?.apply()
     }
 
     fun fetchNextAlarm() {
