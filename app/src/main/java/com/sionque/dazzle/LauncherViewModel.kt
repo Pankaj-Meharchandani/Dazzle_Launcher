@@ -361,13 +361,17 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun fetchNextAlarm() {
-        val alarmManager = getApplication<Application>().getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val nextAlarm = alarmManager.nextAlarmClock
-        if (nextAlarm != null) {
-            val calendar = Calendar.getInstance().apply { timeInMillis = nextAlarm.triggerTime }
-            val formatter = SimpleDateFormat(if (_is24Hour.value) "HH:mm" else "h:mm a", Locale.getDefault())
-            _nextAlarm.value = formatter.format(calendar.time)
-        } else {
+        try {
+            val alarmManager = getApplication<Application>().getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val nextAlarm = alarmManager.nextAlarmClock
+            if (nextAlarm != null) {
+                val calendar = Calendar.getInstance().apply { timeInMillis = nextAlarm.triggerTime }
+                val formatter = SimpleDateFormat(if (_is24Hour.value) "HH:mm" else "h:mm a", Locale.getDefault())
+                _nextAlarm.value = formatter.format(calendar.time)
+            } else {
+                _nextAlarm.value = "No alarm"
+            }
+        } catch (e: Exception) {
             _nextAlarm.value = "No alarm"
         }
     }
@@ -420,9 +424,13 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun initWallpaperColors() {
-        val colors = wallpaperManager.getWallpaperColors(WallpaperManager.FLAG_SYSTEM)
-        updateWallpaperHints(colors)
-        wallpaperManager.addOnColorsChangedListener(wallpaperColorsListener, Handler(Looper.getMainLooper()))
+        try {
+            val colors = wallpaperManager.getWallpaperColors(WallpaperManager.FLAG_SYSTEM)
+            updateWallpaperHints(colors)
+            wallpaperManager.addOnColorsChangedListener(wallpaperColorsListener, Handler(Looper.getMainLooper()))
+        } catch (e: Exception) {
+            _shouldUseDarkText.value = false
+        }
     }
 
     private fun updateWallpaperHints(colors: WallpaperColors?) {
@@ -431,102 +439,126 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             return
         }
         
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            _shouldUseDarkText.value = (colors.colorHints and WallpaperColors.HINT_SUPPORTS_DARK_TEXT) != 0
-        } else {
-            // Fallback for API 30: check luminance of primary color
-            val primary = colors.primaryColor.toArgb()
-            _shouldUseDarkText.value = ColorUtils.calculateLuminance(primary) > 0.5
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                _shouldUseDarkText.value = (colors.colorHints and WallpaperColors.HINT_SUPPORTS_DARK_TEXT) != 0
+            } else {
+                // Fallback for API 30: check luminance of primary color
+                val primary = colors.primaryColor?.toArgb()
+                if (primary != null) {
+                    _shouldUseDarkText.value = ColorUtils.calculateLuminance(primary) > 0.5
+                } else {
+                    _shouldUseDarkText.value = false
+                }
+            }
+        } catch (e: Exception) {
+            _shouldUseDarkText.value = false
         }
     }
 
     override fun onCleared() {
         super.onCleared()
         mindlessHandler.removeCallbacks(mindlessMonitor)
-        wallpaperManager.removeOnColorsChangedListener(wallpaperColorsListener)
-        getApplication<Application>().unregisterReceiver(batteryReceiver)
+        try {
+            wallpaperManager.removeOnColorsChangedListener(wallpaperColorsListener)
+        } catch (e: Exception) {
+            // Ignore
+        }
+        try {
+            getApplication<Application>().unregisterReceiver(batteryReceiver)
+        } catch (e: Exception) {
+            // Ignore
+        }
     }
 
     fun loadApps() {
-        val launcherApps = getApplication<Application>().getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
-        val user = Process.myUserHandle()
-        val packageName = getApplication<Application>().packageName
-        val apps = launcherApps.getActivityList(null, user).mapNotNull { info ->
-            if (info.applicationInfo.packageName == packageName) return@mapNotNull null
+        try {
+            val launcherApps = getApplication<Application>().getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+            val user = Process.myUserHandle()
+            val packageName = getApplication<Application>().packageName
+            val apps = launcherApps.getActivityList(null, user).mapNotNull { info ->
+                if (info.applicationInfo.packageName == packageName) return@mapNotNull null
 
-            val appInfo = info.applicationInfo
-            // MainActivity inherits Jetlab's application icon; it does not
-            // declare a separate activity icon. Prefer the unbadged package
-            // icon so it is not replaced by Android's generic activity icon.
-            val iconDrawable = runCatching {
-                appInfo.loadUnbadgedIcon(packageManager)
-            }.getOrNull()
-                ?: runCatching { packageManager.getApplicationIcon(appInfo.packageName) }.getOrNull()
-                ?: runCatching { info.getBadgedIcon(0) }.getOrNull()
-                ?: runCatching { info.getIcon(0) }.getOrNull()
-            // Limit icon size for better performance and memory usage
-            val bitmap = iconDrawable?.toBitmap(width = 200, height = 200)
-            val dominantColor = bitmap?.let { getDominantColor(it) }
-            
-            // Resolve a user-friendly label
-            val rawLabel = info.label?.toString()?.takeIf { it.isNotBlank() }
-            val applicationLabel = runCatching { appInfo.loadLabel(packageManager).toString() }.getOrNull()?.takeIf { it.isNotBlank() }
+                val appInfo = info.applicationInfo
+                val iconDrawable = runCatching {
+                    appInfo.loadUnbadgedIcon(packageManager)
+                }.getOrNull()
+                    ?: runCatching { packageManager.getApplicationIcon(appInfo.packageName) }.getOrNull()
+                    ?: runCatching { info.getBadgedIcon(0) }.getOrNull()
+                    ?: runCatching { info.getIcon(0) }.getOrNull()
+                // Limit icon size for better performance and memory usage
+                val bitmap = runCatching {
+                    iconDrawable?.toBitmap(width = 200, height = 200)
+                }.getOrNull()
+                val dominantColor = bitmap?.let { runCatching { getDominantColor(it) }.getOrNull() }
+                
+                // Resolve a user-friendly label
+                val rawLabel = info.label?.toString()?.takeIf { it.isNotBlank() }
+                val applicationLabel = runCatching { appInfo.loadLabel(packageManager).toString() }.getOrNull()?.takeIf { it.isNotBlank() }
 
-            val labelCandidate = if (rawLabel == null || rawLabel == info.name || rawLabel == appInfo.packageName) {
-                applicationLabel ?: rawLabel
-            } else {
-                rawLabel
-            }
-
-            val displayLabel = if (labelCandidate.isNullOrBlank() || labelCandidate == info.name || labelCandidate.contains(".")) {
-                val fallbackName = if (labelCandidate?.contains(".") == true) {
-                    val parts = labelCandidate.split(".")
-                    val filtered = parts.filterNot { it.contains("Activity", ignoreCase = true) || it == "com" || it == "example" }
-                    filtered.lastOrNull() ?: parts.last()
+                val labelCandidate = if (rawLabel == null || rawLabel == info.name || rawLabel == appInfo.packageName) {
+                    applicationLabel ?: rawLabel
                 } else {
-                    labelCandidate ?: appInfo.packageName
+                    rawLabel
                 }
-                fallbackName.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-            } else {
-                labelCandidate
-            }
 
-            AppInfo(
-                label = displayLabel,
-                packageName = info.applicationInfo.packageName,
-                className = info.name,
-                icon = bitmap?.asImageBitmap(),
-                dominantColor = dominantColor
-            )
-        }.sortedBy { it.label.trim().lowercase(Locale.getDefault()) }
-        
-        _allApps.value = apps
-        
-        updateDockApps(apps)
-        updateHomeApps(apps)
+                val displayLabel = if (labelCandidate.isNullOrBlank() || labelCandidate == info.name || labelCandidate.contains(".")) {
+                    val fallbackName = if (labelCandidate?.contains(".") == true) {
+                        val parts = labelCandidate.split(".")
+                        val filtered = parts.filterNot { it.contains("Activity", ignoreCase = true) || it == "com" || it == "example" }
+                        filtered.lastOrNull() ?: parts.last()
+                    } else {
+                        labelCandidate ?: appInfo.packageName
+                    }
+                    fallbackName.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+                } else {
+                    labelCandidate
+                }
+
+                AppInfo(
+                    label = displayLabel,
+                    packageName = info.applicationInfo.packageName,
+                    className = info.name,
+                    icon = bitmap?.asImageBitmap(),
+                    dominantColor = dominantColor
+                )
+            }.sortedBy { it.label.trim().lowercase(Locale.getDefault()) }
+            
+            _allApps.value = apps
+            
+            updateDockApps(apps)
+            updateHomeApps(apps)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun getDominantColor(bitmap: Bitmap): Int {
-        var r = 0L
-        var g = 0L
-        var b = 0L
-        var count = 0
-        val width = bitmap.width
-        val height = bitmap.height
-        val pixels = IntArray(width * height)
-        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
-        for (pixel in pixels) {
-            val alpha = (pixel shr 24) and 0xFF
-            if (alpha > 200) { // Consider only mostly opaque pixels
-                r += (pixel shr 16) and 0xFF
-                g += (pixel shr 8) and 0xFF
-                b += pixel and 0xFF
-                count++
+        return try {
+            if (bitmap.isRecycled || bitmap.width <= 0 || bitmap.height <= 0) return Color.TRANSPARENT
+            var r = 0L
+            var g = 0L
+            var b = 0L
+            var count = 0
+            val width = bitmap.width
+            val height = bitmap.height
+            val pixels = IntArray(width * height)
+            bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+            for (pixel in pixels) {
+                val alpha = (pixel shr 24) and 0xFF
+                if (alpha > 200) { // Consider only mostly opaque pixels
+                    r += (pixel shr 16) and 0xFF
+                    g += (pixel shr 8) and 0xFF
+                    b += pixel and 0xFF
+                    count++
+                }
             }
-        }
-        return if (count > 0) {
-            Color.rgb((r / count).toInt(), (g / count).toInt(), (b / count).toInt())
-        } else {
+            if (count > 0) {
+                Color.rgb((r / count).toInt(), (g / count).toInt(), (b / count).toInt())
+            } else {
+                Color.TRANSPARENT
+            }
+        } catch (e: Exception) {
             Color.TRANSPARENT
         }
     }

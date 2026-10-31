@@ -241,8 +241,12 @@ class PostureAlertService : Service(), SensorEventListener {
     }
 
     private fun vibrate() {
-        val vibrator = getSystemService(VIBRATOR_SERVICE) as Vibrator
-        vibrator.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE))
+        try {
+            val vibrator = getSystemService(VIBRATOR_SERVICE) as? Vibrator
+            vibrator?.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE))
+        } catch (e: Exception) {
+            // Ignore
+        }
     }
 
     private fun createNotificationChannel() {

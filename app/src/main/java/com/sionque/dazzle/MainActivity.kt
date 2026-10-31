@@ -515,9 +515,14 @@ fun LauncherRoot(
                         alpha = homeAlpha
                         // Only works on API 31+
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                            renderEffect = android.graphics.RenderEffect.createBlurEffect(
-                                homeBlur.toPx(), homeBlur.toPx(), android.graphics.Shader.TileMode.CLAMP
-                            ).asComposeRenderEffect()
+                            val blurPx = homeBlur.toPx()
+                            if (blurPx > 0f) {
+                                renderEffect = android.graphics.RenderEffect.createBlurEffect(
+                                    blurPx, blurPx, android.graphics.Shader.TileMode.CLAMP
+                                ).asComposeRenderEffect()
+                            } else {
+                                renderEffect = null
+                            }
                         }
                     }
             ) {

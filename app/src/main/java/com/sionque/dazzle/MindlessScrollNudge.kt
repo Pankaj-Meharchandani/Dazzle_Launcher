@@ -109,13 +109,17 @@ object MindlessScrollNudge {
     }
 
     private fun vibrate(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val vibrator = context.getSystemService(VibratorManager::class.java).defaultVibrator
-            vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 140, 80, 140), -1))
-        } else {
-            @Suppress("DEPRECATION")
-            (context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator)
-                .vibrate(longArrayOf(0, 140, 80, 140), -1)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+                vibratorManager?.defaultVibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 140, 80, 140), -1))
+            } else {
+                @Suppress("DEPRECATION")
+                val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+                vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 140, 80, 140), -1))
+            }
+        } catch (e: Exception) {
+            // Ignore vibration errors on emulators/devices without vibrator hardware
         }
     }
 
